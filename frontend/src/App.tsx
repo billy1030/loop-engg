@@ -88,6 +88,7 @@ export function App() {
   const [savedSessions, setSavedSessions] = useState<any[]>([]);
   const [activeSessionFile, setActiveSessionFile] = useState<string | null>(null);
   const [showModelPanel, setShowModelPanel] = useState<boolean>(false);
+  const [showPastSessions, setShowPastSessions] = useState<boolean>(true);
   const [mcpViewMode, setMcpViewMode] = useState<"full" | "minimize" | "hide">("full");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -374,7 +375,22 @@ export function App() {
           </div>
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Mini Chat Bot</h2>
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000 · MCP Protocol</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--accent)",
+                }}
+              >
+                Port 7000
+              </span>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>MCP Protocol</span>
+            </div>
           </div>
         </div>
 
@@ -403,128 +419,183 @@ export function App() {
           <PlusCircle size={16} /> New Chat
         </button>
 
-        {/* Past Sessions Browser - expanded to fill space */}
+        {/* Collapsible Past Sessions Section (Matching Active Model Card Style) */}
         <div
           style={{
             background: "var(--bg-card)",
             borderRadius: 8,
-            padding: 12,
-            marginBottom: 16,
             border: "1px solid var(--border-color)",
+            marginBottom: 12,
+            overflow: "hidden",
             display: "flex",
             flexDirection: "column",
-            flex: 1,
-            minHeight: 180,
-            overflow: "hidden",
+            flex: showPastSessions ? 1 : "0 0 auto",
+            minHeight: showPastSessions ? 140 : "auto",
+            transition: "flex 0.2s ease, min-height 0.2s ease",
           }}
         >
+          {/* Collapsible Header bar: Matches Active Model Header Style */}
           <div
+            onClick={() => setShowPastSessions(!showPastSessions)}
             style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "var(--text-muted)",
-              marginBottom: 8,
+              padding: "10px 14px",
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              cursor: "pointer",
+              background: showPastSessions ? "var(--bg-secondary)" : "transparent",
+              userSelect: "none",
+              borderBottom: showPastSessions ? "1px solid var(--border-color)" : "none",
             }}
+            title="Click to collapse / expand past sessions"
           >
-            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <History size={13} color="var(--accent)" /> PAST SESSIONS ({savedSessions.length})
-            </span>
-            <span
-              style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
-              onClick={fetchLogs}
-              title="Refresh saved sessions"
-            >
-              <RefreshCw size={12} />
-            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <History size={14} color="var(--accent)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)" }}>
+                Past Sessions
+              </span>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {/* Refresh icon button on the left of Logs badge */}
+              <span
+                style={{
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "3px",
+                  borderRadius: 4,
+                  color: "var(--text-muted)",
+                  transition: "color 0.15s",
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fetchLogs();
+                }}
+                title="Refresh saved sessions"
+                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+              >
+                <RefreshCw size={11} />
+              </span>
+
+              <span
+                style={{
+                  fontSize: 10,
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  background: "rgba(37, 99, 235, 0.1)",
+                  color: "var(--accent)",
+                  fontWeight: 600,
+                }}
+              >
+                {savedSessions.length} Logs
+              </span>
+
+              {showPastSessions ? (
+                <ChevronDown size={15} color="var(--text-muted)" />
+              ) : (
+                <ChevronRight size={15} color="var(--text-muted)" />
+              )}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1 }}>
-            {savedSessions.length === 0 ? (
-              <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
-                No past logs yet.
-              </div>
-            ) : (
-              savedSessions.map((session) => {
-                const isActive = activeSessionFile === session.filename;
-                return (
-                  <div
-                    key={session.filename}
-                    onClick={() => loadSession(session.filename)}
-                    title={`Click to load: ${session.filename}`}
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: 6,
-                      fontSize: 11,
-                      cursor: "pointer",
-                      background: isActive ? "rgba(37, 99, 235, 0.12)" : "var(--bg-secondary)",
-                      border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
-                      transition: "all 0.15s ease",
-                      position: "relative",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
-                    }}
-                  >
-                    {/* First Line: Title (Prompt Preview) & Delete Button */}
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
-                        <MessageSquare size={12} color="var(--accent)" style={{ flexShrink: 0 }} />
-                        <span
+          {/* Collapsible Sessions Body */}
+          {showPastSessions && (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                overflowY: "auto",
+                flex: 1,
+                padding: "10px 12px",
+              }}
+            >
+              {savedSessions.length === 0 ? (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
+                  No past logs yet.
+                </div>
+              ) : (
+                savedSessions.map((session) => {
+                  const isActive = activeSessionFile === session.filename;
+                  return (
+                    <div
+                      key={session.filename}
+                      onClick={() => loadSession(session.filename)}
+                      title={`Click to load: ${session.filename}`}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 6,
+                        fontSize: 11,
+                        cursor: "pointer",
+                        background: isActive ? "rgba(37, 99, 235, 0.12)" : "var(--bg-secondary)",
+                        border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
+                        transition: "all 0.15s ease",
+                        position: "relative",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
+                      }}
+                    >
+                      {/* First Line: Title (Prompt Preview) & Delete Button */}
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
+                          <MessageSquare size={12} color="var(--accent)" style={{ flexShrink: 0 }} />
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              fontSize: 12,
+                            }}
+                          >
+                            {session.preview || "Untitled Conversation"}
+                          </span>
+                        </div>
+
+                        {/* Delete Icon Button */}
+                        <button
+                          onClick={(e) => deleteSession(e, session.filename)}
+                          title="Delete this session"
                           style={{
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                            fontSize: 12,
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "2px 4px",
+                            borderRadius: 4,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "var(--text-muted)",
+                            transition: "color 0.15s, background-color 0.15s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "#ef4444";
+                            e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = "var(--text-muted)";
+                            e.currentTarget.style.backgroundColor = "transparent";
                           }}
                         >
-                          {session.preview || "Untitled Conversation"}
-                        </span>
+                          <Trash2 size={13} />
+                        </button>
                       </div>
 
-                      {/* Delete Icon Button */}
-                      <button
-                        onClick={(e) => deleteSession(e, session.filename)}
-                        title="Delete this session"
-                        style={{
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          padding: "2px 4px",
-                          borderRadius: 4,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "var(--text-muted)",
-                          transition: "color 0.15s, background-color 0.15s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = "#ef4444";
-                          e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = "var(--text-muted)";
-                          e.currentTarget.style.backgroundColor = "transparent";
-                        }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      {/* Second Line: Filename / Timestamp */}
+                      <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3, paddingLeft: 17, fontFamily: "monospace" }}>
+                        {session.filename.replace(".md", "")}
+                      </div>
                     </div>
-
-                    {/* Second Line: Filename / Timestamp */}
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3, paddingLeft: 17, fontFamily: "monospace" }}>
-                      {session.filename.replace(".md", "")}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* Collapsible Active Model & Tools Container at Bottom */}
@@ -535,7 +606,10 @@ export function App() {
             border: "1px solid var(--border-color)",
             marginBottom: 12,
             overflow: "hidden",
-            transition: "all 0.2s ease",
+            transition: "flex 0.2s ease",
+            display: "flex",
+            flexDirection: "column",
+            flex: showModelPanel ? 1 : "0 0 auto",
           }}
         >
           {/* Collapsible Header bar: Shows 'Active Model' when collapsed */}
@@ -578,7 +652,7 @@ export function App() {
 
           {/* Expanded Content: Model Details + Active MCP Tools */}
           {showModelPanel && (
-            <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border-color)" }}>
+            <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>CURRENT LLM MODEL</div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
                 <Cpu size={14} /> {config?.llm.model || "Loading..."}
@@ -589,7 +663,7 @@ export function App() {
                 <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>{config?.tools?.length || 0} Tools</span>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowY: "auto", flex: 1 }}>
                 {config?.mcpServers &&
                   Object.entries(config.mcpServers).map(([serverKey, serverDef]: [string, any]) => {
                     const serverTools = (config.discoveredTools || []).filter(
@@ -873,8 +947,6 @@ export function App() {
             >
               <Download size={13} /> Export HTML
             </button>
-
-            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000</div>
           </div>
         </header>
 

@@ -1,0 +1,11 @@
+{
+  "mode": "standard",
+  "workflow": {
+    "auto_verify": true,
+    "atomic_commits": false
+  },
+  "project": {
+    "name": "loop-engg",
+    "description": "Loop Engineering Chatbot Protocol with MCP & Tool-use Protocol (React + Node / CLI / Web UI)"
+  }
+}

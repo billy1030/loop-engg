@@ -1,0 +1,43 @@
+import { z } from "zod";
+
+export const LLMConfigSchema = z.object({
+  baseUrl: z.string().default("https://api.openai.com/v1"),
+  apiKey: z.string().default(""),
+  model: z.string().default("gpt-4o"),
+  temperature: z.number().min(0).max(2).default(0.7),
+  maxTokens: z.number().positive().optional().default(4096),
+});
+
+export const PromptsConfigSchema = z.object({
+  systemPrompt: z.string().default(
+    "You are an expert Loop Engineering Assistant. You have access to external tools via the Model Context Protocol (MCP). " +
+    "When a user asks a question requiring external or up-to-date data, invoke the appropriate tool, inspect the result, " +
+    "and reason through the next steps until you have a comprehensive answer."
+  ),
+  skillsPrompt: z.string().default(
+    "## AI Skills & Protocols:\n" +
+    "- Internet Search & Web Ingestion: Use MCP search/fetch tools to gather facts before answering questions on dynamic topics.\n" +
+    "- Verification: Cross-check information from multiple snippets.\n" +
+    "- Tool Transparency: Always clearly state what action you are taking."
+  ),
+});
+
+export const MCPServerDefSchema = z.object({
+  command: z.string(),
+  args: z.array(z.string()).default([]),
+  env: z.record(z.string(), z.string()).optional(),
+  enabled: z.boolean().default(true),
+  description: z.string().optional(),
+});
+
+export const LoopConfigSchema = z.object({
+  llm: LLMConfigSchema,
+  prompts: PromptsConfigSchema,
+  mcpServers: z.record(z.string(), MCPServerDefSchema),
+  maxLoopIterations: z.number().min(1).max(50).default(10),
+});
+
+export type LLMConfig = z.infer<typeof LLMConfigSchema>;
+export type PromptsConfig = z.infer<typeof PromptsConfigSchema>;
+export type MCPServerDef = z.infer<typeof MCPServerDefSchema>;
+export type LoopConfig = z.infer<typeof LoopConfigSchema>;

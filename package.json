@@ -1,0 +1,30 @@
+{
+  "name": "loop-engg",
+  "version": "1.0.0",
+  "description": "Loop Engineering Chatbot with Model Context Protocol (MCP)",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "cli": "tsx src/cli/index.ts",
+    "test": "tsx test/test-loop.ts"
+  },
+  "keywords": [
+    "mcp",
+    "llm",
+    "loop-engineering",
+    "chatbot"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@types/node": "^26.4.1",
+    "chalk": "^6.0.0",
+    "dotenv": "^17.4.2",
+    "openai": "^7.9.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "zod": "^4.5.4"
+  }
+}

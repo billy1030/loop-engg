@@ -19,6 +19,7 @@ import {
   History,
   MessageSquare,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
@@ -38,6 +39,8 @@ interface Message {
   toolCalls?: ToolCallLog[];
   isStreaming?: boolean;
   iterations?: number;
+  duration?: number;
+  tokensPerSec?: number;
 }
 
 interface ConfigState {
@@ -134,6 +137,31 @@ export function App() {
     }
   };
 
+  const deleteSession = async (e: React.MouseEvent, filename: string) => {
+    e.stopPropagation(); // prevent triggering loadSession
+    if (!confirm(`Are you sure you want to delete this session log?\n(${filename})`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        // If the deleted session was currently open in chat, reset to new chat
+        if (activeSessionFile === filename) {
+          startNewChat();
+        }
+        await fetchLogs();
+      } else {
+        const data = await res.json();
+        alert(`Failed to delete session: ${data.error || "Unknown error"}`);
+      }
+    } catch (err: any) {
+      alert(`Error deleting session: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentStep]);
@@ -199,6 +227,8 @@ export function App() {
         role: m.role,
         content: m.content,
       }));
+
+    const requestStartTime = Date.now();
 
     try {
       const response = await fetch("/api/chat", {
@@ -272,6 +302,10 @@ export function App() {
               )
             );
           } else if (event === "complete") {
+            const totalDurationSec = Math.max(0.1, (Date.now() - requestStartTime) / 1000);
+            const estTokens = Math.round((data.answer?.length || 0) / 3.5);
+            const tokensPerSec = Math.round(estTokens / totalDurationSec);
+
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMessageId
@@ -279,6 +313,8 @@ export function App() {
                       ...m,
                       content: data.answer,
                       iterations: data.iterations,
+                      duration: parseFloat(totalDurationSec.toFixed(1)),
+                      tokensPerSec,
                       isStreaming: false,
                     }
                   : m
@@ -423,6 +459,7 @@ export function App() {
                       background: isActive ? "rgba(37, 99, 235, 0.12)" : "var(--bg-secondary)",
                       border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
                       transition: "all 0.15s ease",
+                      position: "relative",
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
@@ -431,14 +468,54 @@ export function App() {
                       if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)" }}>
-                      <MessageSquare size={11} color="var(--accent)" />
-                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {session.filename.replace(".md", "")}
-                      </span>
+                    {/* First Line: Title (Prompt Preview) & Delete Button */}
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
+                        <MessageSquare size={12} color="var(--accent)" style={{ flexShrink: 0 }} />
+                        <span
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            fontSize: 12,
+                          }}
+                        >
+                          {session.preview || "Untitled Conversation"}
+                        </span>
+                      </div>
+
+                      {/* Delete Icon Button */}
+                      <button
+                        onClick={(e) => deleteSession(e, session.filename)}
+                        title="Delete this session"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          padding: "2px 4px",
+                          borderRadius: 4,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "var(--text-muted)",
+                          transition: "color 0.15s, background-color 0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "#ef4444";
+                          e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--text-muted)";
+                          e.currentTarget.style.backgroundColor = "transparent";
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 3 }}>
-                      {session.preview}
+
+                    {/* Second Line: Filename / Timestamp */}
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3, paddingLeft: 17, fontFamily: "monospace" }}>
+                      {session.filename.replace(".md", "")}
                     </div>
                   </div>
                 );
@@ -814,10 +891,21 @@ export function App() {
                             borderTop: "1px solid var(--border-color)",
                             fontSize: 11,
                             color: "var(--text-muted)",
+                            flexWrap: "wrap",
                           }}
                         >
                           <span>Tokens: ~{Math.round(m.content.length / 3.5)}</span>
                           <span>Length: {m.content.length} chars</span>
+                          {m.duration !== undefined && (
+                            <span style={{ color: "var(--accent)", fontWeight: 600 }}>
+                              ⏱️ Time: {m.duration}s
+                            </span>
+                          )}
+                          {m.tokensPerSec !== undefined && (
+                            <span style={{ color: "#8b5cf6", fontWeight: 600 }}>
+                              ⚡ Speed: ~{m.tokensPerSec} T/s
+                            </span>
+                          )}
                           {m.iterations && (
                             <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>
                               Resolved in {m.iterations} iteration(s)

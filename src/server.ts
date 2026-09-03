@@ -10,6 +10,7 @@ import {
   saveConversationLog,
   listConversationLogs,
   parseConversationLog,
+  deleteConversationLog,
 } from "./logger/conversation-logger.js";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7000;
@@ -217,6 +218,21 @@ app.get("/api/logs/:filename", (req, res) => {
     res.json(session);
   } catch (err: any) {
     res.status(404).json({ error: err.message });
+  }
+});
+
+// 7. Delete Conversation Log File
+app.delete("/api/logs/:filename", (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const deleted = deleteConversationLog(filename);
+    if (deleted) {
+      res.json({ success: true, message: `Deleted ${filename}` });
+    } else {
+      res.status(404).json({ error: "File not found." });
+    }
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 });
 

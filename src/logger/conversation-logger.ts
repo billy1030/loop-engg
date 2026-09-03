@@ -241,3 +241,22 @@ export function parseConversationLog(filename: string, baseDir: string = "logs")
     messages,
   };
 }
+
+/**
+ * Delete a saved conversation log file safely
+ */
+export function deleteConversationLog(filename: string, baseDir: string = "logs"): boolean {
+  // Guard against directory traversal attacks
+  const safeFilename = path.basename(filename);
+  if (!safeFilename.endsWith(".md") || safeFilename === "README.md") {
+    throw new Error("Invalid log file specified.");
+  }
+
+  const fullPath = path.resolve(process.cwd(), baseDir, safeFilename);
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath);
+    console.log(`[Conversation Logger] 🗑️ Deleted conversation log: ${safeFilename}`);
+    return true;
+  }
+  return false;
+}

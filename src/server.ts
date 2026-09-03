@@ -46,6 +46,7 @@ app.get("/api/config", (req, res) => {
   const safeConfig = {
     ...config,
     tools: mcpManager.getOpenAITools(),
+    discoveredTools: mcpManager.getDiscoveredTools(),
   };
   res.json(safeConfig);
 });
@@ -82,6 +83,7 @@ app.post("/api/config", async (req, res) => {
       config: {
         ...config,
         tools: mcpManager.getOpenAITools(),
+        discoveredTools: mcpManager.getDiscoveredTools(),
       },
     });
   } catch (err: any) {
@@ -92,7 +94,8 @@ app.post("/api/config", async (req, res) => {
 // 3. List Discovered MCP Tools
 app.get("/api/tools", (req, res) => {
   const tools = mcpManager.getOpenAITools();
-  res.json({ tools });
+  const discoveredTools = mcpManager.getDiscoveredTools();
+  res.json({ tools, discoveredTools });
 });
 
 // 4. Chat with Streaming Events (SSE)
@@ -118,11 +121,23 @@ app.post("/api/chat", async (req, res) => {
       onStepStart: (iteration) => {
         sendEvent("step_start", { iteration });
       },
-      onToolCall: (toolName, toolArgs) => {
-        sendEvent("tool_call", { toolName, args: toolArgs, timestamp: Date.now() });
+      onToolCall: (toolName, toolArgs, serverName) => {
+        console.log(`[Loop Server] 🛠️ Tool invoked: "${toolName}" via MCP Server: [${serverName}]`);
+        sendEvent("tool_call", {
+          toolName,
+          serverName: serverName || "unknown",
+          args: toolArgs,
+          timestamp: Date.now(),
+        });
       },
-      onToolResult: (toolName, result) => {
-        sendEvent("tool_result", { toolName, result, timestamp: Date.now() });
+      onToolResult: (toolName, result, serverName) => {
+        console.log(`[Loop Server] ✅ Tool completed: "${toolName}" [${serverName}] (${result.length} chars)`);
+        sendEvent("tool_result", {
+          toolName,
+          serverName: serverName || "unknown",
+          result,
+          timestamp: Date.now(),
+        });
       },
       onComplete: (answer, iterations) => {
         sendEvent("complete", { answer, iterations });

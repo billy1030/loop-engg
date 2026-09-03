@@ -90,6 +90,20 @@ export class MCPClientManager {
   }
 
   /**
+   * Returns all discovered tools with their owning serverName and inputSchema
+   */
+  getDiscoveredTools(): DiscoveredTool[] {
+    return Array.from(this.tools.values());
+  }
+
+  /**
+   * Returns the serverName owning the specified tool
+   */
+  getToolServerName(name: string): string | undefined {
+    return this.tools.get(name)?.serverName;
+  }
+
+  /**
    * Calls a tool by name on the corresponding MCP server
    */
   async executeTool(name: string, args: Record<string, any>): Promise<string> {

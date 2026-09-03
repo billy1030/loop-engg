@@ -13,12 +13,15 @@ import {
   Search,
   Eye,
   EyeOff,
+  Server,
+  Info,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
 interface ToolCallLog {
   id: string;
   toolName: string;
+  serverName?: string;
   args: any;
   result?: string;
   timestamp: number;
@@ -48,6 +51,12 @@ interface ConfigState {
   mcpServers: Record<string, any>;
   maxLoopIterations: number;
   tools?: any[];
+  discoveredTools?: {
+    serverName: string;
+    name: string;
+    description?: string;
+    inputSchema: any;
+  }[];
 }
 
 export function App() {
@@ -66,6 +75,7 @@ export function App() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
+  const [selectedToolDetail, setSelectedToolDetail] = useState<any | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -177,6 +187,7 @@ export function App() {
             const newTool: ToolCallLog = {
               id: toolId,
               toolName: data.toolName,
+              serverName: data.serverName,
               args: data.args,
               timestamp: data.timestamp || Date.now(),
             };
@@ -192,7 +203,7 @@ export function App() {
           } else if (event === "tool_result") {
             activeTools = activeTools.map((t) =>
               t.toolName === data.toolName && !t.result
-                ? { ...t, result: data.result }
+                ? { ...t, result: data.result, serverName: data.serverName || t.serverName }
                 : t
             );
             setMessages((prev) =>
@@ -283,26 +294,103 @@ export function App() {
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6 }}>
             <Sparkles size={16} /> {config?.llm.model || "Loading..."}
           </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, marginBottom: 6 }}>MCP TOOLS DISCOVERED</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {config?.tools?.map((tool: any) => (
-              <div
-                key={tool.function.name}
-                style={{
-                  fontSize: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  color: "var(--accent-emerald)",
-                  background: "rgba(22, 163, 74, 0.1)",
-                  padding: "4px 8px",
-                  borderRadius: 4,
-                }}
-              >
-                <Globe size={13} />
-                <code>{tool.function.name}</code>
-              </div>
-            )) || <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading tools...</span>}
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>ACTIVE MCP SERVERS & TOOLS</span>
+            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>
+              {config?.tools?.length || 0} Tools
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 300, overflowY: "auto" }}>
+            {config?.mcpServers &&
+              Object.entries(config.mcpServers).map(([serverKey, serverDef]: [string, any]) => {
+                const serverTools = (config.discoveredTools || []).filter(
+                  (t) => t.serverName === serverKey
+                );
+
+                return (
+                  <div
+                    key={serverKey}
+                    style={{
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
+                      borderRadius: 6,
+                      padding: "8px 10px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: 6,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Server size={13} color="var(--accent)" />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)" }}>
+                          {serverKey}
+                        </span>
+                      </div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          padding: "1px 5px",
+                          borderRadius: 4,
+                          background: serverDef.enabled ? "rgba(22, 163, 74, 0.15)" : "var(--bg-card)",
+                          color: serverDef.enabled ? "var(--accent-emerald)" : "var(--text-muted)",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {serverDef.enabled ? "Active" : "Disabled"}
+                      </span>
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {serverTools.length > 0 ? (
+                        serverTools.map((t) => (
+                          <div
+                            key={t.name}
+                            onClick={() =>
+                              setSelectedToolDetail({
+                                ...t,
+                                serverDef,
+                              })
+                            }
+                            title="Click to view tool definition & input schema"
+                            style={{
+                              fontSize: 11,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 6,
+                              color: "var(--text-main)",
+                              background: "var(--bg-card)",
+                              padding: "3px 6px",
+                              borderRadius: 4,
+                              cursor: "pointer",
+                              border: "1px solid transparent",
+                              transition: "border-color 0.15s",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}
+                          >
+                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <Globe size={11} color="var(--accent-emerald)" />
+                              <code>{t.name}</code>
+                            </span>
+                            <Info size={12} color="var(--text-muted)" />
+                          </div>
+                        ))
+                      ) : (
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>
+                          Connecting or discovering tools...
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
 
@@ -421,6 +509,24 @@ export function App() {
                                 <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-amber)" }}>
                                   Tool Call: {t.toolName}
                                 </span>
+                                {t.serverName && (
+                                  <span
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: 600,
+                                      padding: "1px 6px",
+                                      borderRadius: 4,
+                                      background: "rgba(2, 132, 199, 0.12)",
+                                      color: "var(--accent)",
+                                      border: "1px solid rgba(2, 132, 199, 0.25)",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <Server size={10} /> {t.serverName}
+                                  </span>
+                                )}
                                 <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                                   args: {JSON.stringify(t.args)}
                                 </span>
@@ -829,6 +935,138 @@ export function App() {
                 }}
               >
                 Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tool & Server Config Inspector Modal */}
+      {selectedToolDetail && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+          }}
+        >
+          <div
+            style={{
+              width: "min(680px, 90vw)",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-color)",
+              borderRadius: 12,
+              padding: 24,
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 15px 35px rgba(0,0,0,0.2)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Globe size={18} color="var(--accent-emerald)" />
+                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>
+                  {selectedToolDetail.name}
+                </h3>
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    background: "rgba(2, 132, 199, 0.15)",
+                    color: "var(--accent)",
+                    fontWeight: 600,
+                  }}
+                >
+                  Server: {selectedToolDetail.serverName}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedToolDetail(null)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 18,
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
+                DESCRIPTION
+              </div>
+              <div style={{ fontSize: 13, color: "var(--text-main)", background: "var(--bg-card)", padding: "10px 12px", borderRadius: 6, border: "1px solid var(--border-color)" }}>
+                {selectedToolDetail.description || "No description provided."}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
+                HOST MCP SERVER CONFIGURATION
+              </div>
+              <pre
+                style={{
+                  background: "var(--bg-primary)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 6,
+                  padding: 10,
+                  fontSize: 12,
+                  color: "var(--accent)",
+                  fontFamily: "ui-monospace, monospace",
+                  overflowX: "auto",
+                }}
+              >
+                {JSON.stringify(selectedToolDetail.serverDef, null, 2)}
+              </pre>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>
+                INPUT SCHEMA (PARAMETERS DEFINITION)
+              </div>
+              <pre
+                style={{
+                  background: "var(--bg-primary)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 6,
+                  padding: 10,
+                  fontSize: 12,
+                  color: "var(--accent-emerald)",
+                  fontFamily: "ui-monospace, monospace",
+                  maxHeight: 220,
+                  overflowY: "auto",
+                }}
+              >
+                {JSON.stringify(selectedToolDetail.inputSchema, null, 2)}
+              </pre>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+              <button
+                onClick={() => setSelectedToolDetail(null)}
+                style={{
+                  padding: "7px 18px",
+                  borderRadius: 6,
+                  background: "#1f6feb",
+                  color: "#fff",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                Close
               </button>
             </div>
           </div>

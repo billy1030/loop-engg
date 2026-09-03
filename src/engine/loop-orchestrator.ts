@@ -6,8 +6,8 @@ import { MCPClientManager } from "../mcp/client-manager.js";
 export interface LoopEventCallbacks {
   onStepStart?: (iteration: number) => void;
   onLLMResponse?: (response: OpenAI.Chat.Completions.ChatCompletion) => void;
-  onToolCall?: (toolName: string, args: any) => void;
-  onToolResult?: (toolName: string, result: string) => void;
+  onToolCall?: (toolName: string, args: any, serverName?: string) => void;
+  onToolResult?: (toolName: string, result: string, serverName?: string) => void;
   onComplete?: (finalAnswer: string, iterations: number) => void;
   onError?: (error: Error) => void;
 }
@@ -70,6 +70,8 @@ export class LoopOrchestrator {
             if (toolCall.type !== "function") continue;
 
             const toolName = toolCall.function.name;
+            const serverName = this.mcpManager.getToolServerName(toolName) || "unknown";
+
             let parsedArgs: any = {};
             try {
               parsedArgs = JSON.parse(toolCall.function.arguments || "{}");
@@ -77,7 +79,7 @@ export class LoopOrchestrator {
               console.warn(`[Loop] Failed to parse JSON arguments for tool ${toolName}`);
             }
 
-            callbacks?.onToolCall?.(toolName, parsedArgs);
+            callbacks?.onToolCall?.(toolName, parsedArgs, serverName);
 
             // Execute via MCP
             let toolOutput = "";
@@ -87,7 +89,7 @@ export class LoopOrchestrator {
               toolOutput = `[Tool Execution Error]: ${execErr.message}`;
             }
 
-            callbacks?.onToolResult?.(toolName, toolOutput);
+            callbacks?.onToolResult?.(toolName, toolOutput, serverName);
 
             // Append tool response to message history
             messages.push({

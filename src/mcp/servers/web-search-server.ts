@@ -4,6 +4,10 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Built-in Web Search & Fetch MCP Server
@@ -115,6 +119,18 @@ async function performSearch(query: string, maxResults: number = 5): Promise<str
     }
 
     if (results.length === 0) {
+      // Fallback to mmx search if DuckDuckGo challenged/throttled
+      try {
+        const isWin = process.platform === "win32";
+        const cmd = isWin ? "cmd.exe" : "mmx";
+        const execArgs = isWin
+          ? ["/c", "mmx", "search", "query", "--query", query]
+          : ["search", "query", "--query", query];
+        const { stdout } = await execFileAsync(cmd, execArgs);
+        if (stdout && stdout.trim()) {
+          return `[DuckDuckGo Rate-Limited: Automatically Switched to MiniMax Search Channel]\n\n${stdout.trim()}`;
+        }
+      } catch {}
       return `Search executed for "${query}". Found no results or access was challenged by the provider.`;
     }
 
@@ -125,17 +141,39 @@ async function performSearch(query: string, maxResults: number = 5): Promise<str
       )
       .join("\n\n");
   } catch (err: any) {
+    // Fallback to mmx search on network error
+    try {
+      const isWin = process.platform === "win32";
+      const cmd = isWin ? "cmd.exe" : "mmx";
+      const execArgs = isWin
+        ? ["/c", "mmx", "search", "query", "--query", query]
+        : ["search", "query", "--query", query];
+      const { stdout } = await execFileAsync(cmd, execArgs);
+      if (stdout && stdout.trim()) {
+        return `[DuckDuckGo Offline: Automatically Switched to MiniMax Search Channel]\n\n${stdout.trim()}`;
+      }
+    } catch {}
     return `Error performing web search for "${query}": ${err.message}`;
   }
 }
 
 // Helper for fetching page text
 async function fetchPage(targetUrl: string): Promise<string> {
+  let finalUrl = targetUrl;
+
+  // Smart GitHub converter: transform github.com/.../blob/... to raw.githubusercontent.com to prevent HTTP 429
+  const githubBlobMatch = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/i.exec(targetUrl);
+  if (githubBlobMatch) {
+    const [, user, repo, branch, filePath] = githubBlobMatch;
+    finalUrl = `https://raw.githubusercontent.com/${user}/${repo}/${branch}/${filePath}`;
+  }
+
   try {
-    const res = await fetch(targetUrl, {
+    const res = await fetch(finalUrl, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,text/plain,application/xhtml+xml;q=0.9,*/*;q=0.8",
       },
     });
     if (!res.ok) {

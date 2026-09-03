@@ -6,6 +6,7 @@ import { loadConfig } from "./config/index.js";
 import { LoopConfig, MCPServerDef } from "./config/schema.js";
 import { MCPClientManager } from "./mcp/client-manager.js";
 import { LoopOrchestrator } from "./engine/loop-orchestrator.js";
+import { saveConversationLog } from "./logger/conversation-logger.js";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7000;
 
@@ -114,6 +115,15 @@ app.post("/api/chat", async (req, res) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
+  const startTime = new Date();
+  const sessionToolCalls: Array<{
+    toolName: string;
+    serverName?: string;
+    args: any;
+    result?: string;
+    timestamp: number;
+  }> = [];
+
   try {
     const orchestrator = new LoopOrchestrator(config, mcpManager);
 
@@ -123,6 +133,12 @@ app.post("/api/chat", async (req, res) => {
       },
       onToolCall: (toolName, toolArgs, serverName) => {
         console.log(`[Loop Server] 🛠️ Tool invoked: "${toolName}" via MCP Server: [${serverName}]`);
+        sessionToolCalls.push({
+          toolName,
+          serverName: serverName || "unknown",
+          args: toolArgs,
+          timestamp: Date.now(),
+        });
         sendEvent("tool_call", {
           toolName,
           serverName: serverName || "unknown",
@@ -132,6 +148,11 @@ app.post("/api/chat", async (req, res) => {
       },
       onToolResult: (toolName, result, serverName) => {
         console.log(`[Loop Server] ✅ Tool completed: "${toolName}" [${serverName}] (${result.length} chars)`);
+        const existing = sessionToolCalls.find((t) => t.toolName === toolName && !t.result);
+        if (existing) {
+          existing.result = result;
+          if (serverName) existing.serverName = serverName;
+        }
         sendEvent("tool_result", {
           toolName,
           serverName: serverName || "unknown",
@@ -140,6 +161,21 @@ app.post("/api/chat", async (req, res) => {
         });
       },
       onComplete: (answer, iterations) => {
+        // Save conversation log in markdown format with date-time filename
+        try {
+          saveConversationLog({
+            userPrompt: message,
+            model: config.llm.model,
+            iterations,
+            toolCalls: sessionToolCalls,
+            finalAnswer: answer,
+            startTime,
+            endTime: new Date(),
+          });
+        } catch (logErr: any) {
+          console.error(`[Conversation Logger] Failed to save log: ${logErr.message}`);
+        }
+
         sendEvent("complete", { answer, iterations });
         res.write("event: end\ndata: {}\n\n");
         res.end();

@@ -4,6 +4,7 @@ import { loadConfig } from "../config/index.js";
 import { MCPServerDef } from "../config/schema.js";
 import { MCPClientManager } from "../mcp/client-manager.js";
 import { LoopOrchestrator } from "../engine/loop-orchestrator.js";
+import { saveConversationLog } from "../logger/conversation-logger.js";
 
 async function main() {
   console.log(chalk.bold.cyan("\n=============================================="));
@@ -59,15 +60,35 @@ async function main() {
     console.log(chalk.blueBright(`\n[User]: ${userPrompt}\n`));
     console.log(chalk.yellow("Starting autonomous loop iterations...\n"));
 
+    const startTime = new Date();
+    const sessionToolCalls: Array<{
+      toolName: string;
+      serverName?: string;
+      args: any;
+      result?: string;
+      timestamp: number;
+    }> = [];
+
     await orchestrator.run(userPrompt, {
       onStepStart: (iter) => {
         console.log(chalk.magenta(`--- Iteration ${iter} ---`));
       },
-      onToolCall: (toolName, toolArgs) => {
-        console.log(chalk.yellow(`[Tool Call ⚡] -> ${chalk.bold(toolName)}`));
+      onToolCall: (toolName, toolArgs, serverName) => {
+        sessionToolCalls.push({
+          toolName,
+          serverName,
+          args: toolArgs,
+          timestamp: Date.now(),
+        });
+        console.log(chalk.yellow(`[Tool Call ⚡] -> ${chalk.bold(toolName)} ${serverName ? chalk.dim(`[${serverName}]`) : ""}`));
         console.log(chalk.dim(`  Arguments: ${JSON.stringify(toolArgs, null, 2)}`));
       },
-      onToolResult: (toolName, result) => {
+      onToolResult: (toolName, result, serverName) => {
+        const existing = sessionToolCalls.find((t) => t.toolName === toolName && !t.result);
+        if (existing) {
+          existing.result = result;
+          if (serverName) existing.serverName = serverName;
+        }
         const preview = result.length > 300 ? result.slice(0, 300) + "... (truncated)" : result;
         console.log(chalk.cyan(`[MCP Observation 🔍] <- ${toolName}:`));
         console.log(chalk.dim(`  ${preview.replace(/\n/g, "\n  ")}\n`));
@@ -76,6 +97,21 @@ async function main() {
         console.log(chalk.bold.green(`\n[Final Answer (after ${iterations} iteration(s))]:`));
         console.log(chalk.white(answer));
         console.log(chalk.dim("\n----------------------------------------------\n"));
+
+        try {
+          const logFile = saveConversationLog({
+            userPrompt,
+            model: config.llm.model,
+            iterations,
+            toolCalls: sessionToolCalls,
+            finalAnswer: answer,
+            startTime,
+            endTime: new Date(),
+          });
+          console.log(chalk.dim(`✓ Conversation logged to: ${logFile}\n`));
+        } catch (logErr: any) {
+          console.error(chalk.red(`Failed to save conversation log: ${logErr.message}`));
+        }
       },
       onError: (err) => {
         console.log(chalk.red(`[Error in loop]: ${err.message}`));

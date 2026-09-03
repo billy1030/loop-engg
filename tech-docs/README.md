@@ -21,7 +21,9 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 ---
 
 ## Quick Reference Commands
-- **Start Backend & Web Server (Port 7000)**: `npm run dev` or `npx tsx src/server.ts`
+- **One-Click Startup (macOS / Linux)**: `./startup.sh` (or `PORT=7001 ./startup.sh`)
+- **One-Click Startup (Windows)**: `startup.bat`
+- **Start Backend & Web Server**: `PORT=7001 npx tsx src/server.ts`
 - **Start Interactive Terminal CLI REPL**: `npm run cli`
 - **Execute Single Test Query**: `npx tsx src/cli/index.ts --query "Search the internet for..."`
 - **Run Integration Tests**: `npm test`

@@ -112,4 +112,5 @@ flowchart TD
 2. **JSON-RPC 2.0 (MCP Protocol)**:
    - 主進程與子進程之間使用嚴格符合 JSON-RPC 2.0 規範的 Stdio 流進行工具列表發現與執行派發。
 3. **連接埠規範 (Port Standardization)**:
-   - 全系統標準測試連接埠為 **Port 7000**（`http://localhost:7000`）。
+   - 全系統標準測試連接埠預設為 **Port 7000**（`http://localhost:7000`）。
+   - 在 macOS 環境下，若遇到系統服務 **AirPlay Receiver (`ControlCenter`)** 佔用 Port 7000，系統無縫支援 **Port 7001**（`PORT=7001 ./startup.sh`，可於 `http://localhost:7001` 存取）。

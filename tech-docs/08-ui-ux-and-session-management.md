@@ -88,3 +88,45 @@ sequenceDiagram
 - **Token 估算**：基於字元長度動態計算（`~length / 3.5`），讓操作者即時感知上下文使用量。
 - **字元長度 (Character Length)**：精準顯示生成的文本字元總數。
 - **迭代步數 (Resolved Iterations)**：標記 AI 小助手歷經多少輪 ReAct 循環才完成任務（例如 `Resolved in 10 iteration(s)`）。
+
+---
+
+## 5. SLS 風格深色毛玻璃彈窗與提示系統 (SLS-Style Alert & Confirm System)
+
+為了提供與現代 Web OS / 儀表板一致的沉浸式互動反饋，前端全面淘汰了瀏覽器原生阻塞式 `window.alert()` 與 `window.confirm()`，引入了源自 `sls` 專案的高階彈窗元件 [`AlertModal.tsx`](file:///Users/billylam/ai/loop-engg/frontend/src/components/AlertModal.tsx)：
+
+### 5.1 視覺架構與質感
+- **深色毛玻璃背景遮罩**：採用 `rgba(15, 23, 42, 0.65)` 與 `backdrop-filter: blur(6px)`，突顯當前操作焦點。
+- **立體彈出卡片**：16px 圓角、細微白晝邊框（`1px solid var(--border-color)`）與 `modalPop` 微彈跳浮現動畫。
+- **情境化色彩圖標與訊息容器**：
+  - **Success（成功）**：綠色翡翠徽章、`CheckCircle2` 圖標、綠色淺底訊息框（如配置儲存成功）。
+  - **Warning（警告 / 刪除確認）**：琥珀金徽章、`AlertTriangle` 圖標、警示訊息（如永久刪除歷史會話確認）。
+  - **Error（錯誤）**：玫瑰紅徽章、`AlertCircle` 圖標、紅色淺底錯誤訊息（如 MCP JSON 語法解析失敗）。
+  - **Info（資訊）**：湛藍徽章、`Info` 圖標。
+
+### 5.2 呼叫介面
+透過 React 集中狀態管理，支援即時函數式調用：
+```tsx
+// 提示彈窗
+showAlert("系統配置與 MCP 伺服器已成功儲存並完成熱重載！", "success", "配置儲存成功");
+
+// 確認操作彈窗
+showConfirm(
+  "確定要刪除以下歷史會話記錄嗎？\n此操作將從磁碟永久移除，無法復原！",
+  () => executeDelete(),
+  "永久刪除確認",
+  "確認刪除"
+);
+```
+
+---
+
+## 6. MCP Servers Registry 彈性 JSON 緩衝編輯器 (Editable Registry Buffer)
+
+在 Configuration 設定視窗中，針對右側的 **Active MCP Servers Registry**，傳統直接綁定 `JSON.stringify(config.mcpServers)` 容易因鍵入過程中的臨時語法殘缺導致焦點遺失與輸入被拒。
+
+### 解決方案：獨立字串緩衝器與語法實時校驗
+1. 建立獨立狀態 `mcpJsonText` 與 `mcpJsonError`。
+2. 鍵入過程中允許任意暫時性文字編輯、貼上與修改。
+3. 實時運行語法分析：若 JSON 格式有殘缺，文字框邊框即時亮紅並顯示詳細語法錯誤位置；若格式完整合法，則紅框自動解除。
+4. 點擊「Save & Reload Configuration」時進行嚴格校驗，確保推送至後端 Express 5 的皆為合法 MCP 伺服器宣告物件。

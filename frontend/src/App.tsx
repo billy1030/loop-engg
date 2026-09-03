@@ -18,6 +18,7 @@ import {
   PlusCircle,
   History,
   MessageSquare,
+  Loader2,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
@@ -825,9 +826,10 @@ export function App() {
                         </div>
                       </>
                     ) : m.isStreaming ? (
-                      <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
-                        Reasoning through tool outputs...
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontStyle: "italic", fontSize: 13 }}>
+                        <Loader2 size={16} className="spin" color="var(--accent)" />
+                        <span>Reasoning through tool outputs...</span>
+                      </div>
                     ) : null}
                   </div>
                 </div>

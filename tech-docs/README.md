@@ -1,0 +1,20 @@
+# Loop Engineering Technical Documentation Index
+
+Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. This directory provides in-depth technical documentation covering system architecture, design decisions, challenges tackled, protocols, and integration guides.
+
+## Documentation Index
+
+| Document | Topic & Focus |
+|---|---|
+| [01. Architecture & Protocol Specification](./01-architecture-and-protocol.md) | High-level system design, ReAct cycle state machine, Mermaid diagrams, SSE streaming contracts. |
+| [02. MCP Integration & Schema Translation](./02-mcp-integration-guide.md) | Model Context Protocol (`@modelcontextprotocol/sdk`) mechanics, dynamic schema mapping to OpenAI tools, stdio transport. |
+| [03. Technical Challenges & Solutions](./03-technical-challenges-and-solutions.md) | Engineering post-mortems: infinite tool loops, observation bloat, Windows stdio IPC, real-time UI streaming. |
+| [04. AI Skills & Prompts Setup](./04-ai-skills-and-prompts-setup.md) | How system prompts and skills instructions are ingested, dynamic behavior configuration, MiniMax multimodal toolkit mapping. |
+
+---
+
+## Quick Reference Commands
+- **Start Backend & Web Server (Port 7000)**: `npm run dev` or `npx tsx src/server.ts`
+- **Start Interactive Terminal CLI REPL**: `npm run cli`
+- **Execute Single Test Query**: `npx tsx src/cli/index.ts --query "Search the internet for..."`
+- **Run Integration Tests**: `npm test`

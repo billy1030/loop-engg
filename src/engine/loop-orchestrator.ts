@@ -24,11 +24,12 @@ export class LoopOrchestrator {
   }
 
   /**
-   * Run the Loop Engineering protocol on a user query
+   * Run the Loop Engineering protocol on a user query with multi-turn history support
    */
   async run(
     userPrompt: string,
-    callbacks?: LoopEventCallbacks
+    callbacks?: LoopEventCallbacks,
+    history?: Array<{ role: "user" | "assistant"; content: string }>
   ): Promise<{ answer: string; iterations: number; history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] }> {
     // 1. Build initial system message combining system prompt and AI skills
     const fullSystemPrompt = [
@@ -39,8 +40,22 @@ export class LoopOrchestrator {
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: fullSystemPrompt },
-      { role: "user", content: userPrompt },
     ];
+
+    // 2. Inject prior conversation turns if provided
+    if (history && history.length > 0) {
+      for (const turn of history) {
+        if (turn.role === "user" || turn.role === "assistant") {
+          messages.push({
+            role: turn.role,
+            content: turn.content,
+          });
+        }
+      }
+    }
+
+    // 3. Append current user query
+    messages.push({ role: "user", content: userPrompt });
 
     const tools = this.mcpManager.getOpenAITools() as OpenAI.Chat.Completions.ChatCompletionTool[];
 

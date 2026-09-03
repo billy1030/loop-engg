@@ -15,6 +15,9 @@ import {
   EyeOff,
   Server,
   Info,
+  PlusCircle,
+  History,
+  MessageSquare,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
@@ -76,13 +79,58 @@ export function App() {
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [selectedToolDetail, setSelectedToolDetail] = useState<any | null>(null);
+  const [savedSessions, setSavedSessions] = useState<any[]>([]);
+  const [activeSessionFile, setActiveSessionFile] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Fetch initial configuration and active MCP tools
   useEffect(() => {
     fetchConfig();
+    fetchLogs();
   }, []);
+
+  const fetchLogs = async () => {
+    try {
+      const res = await fetch("/api/logs");
+      const data = await res.json();
+      if (data.logs) {
+        setSavedSessions(data.logs);
+      }
+    } catch (err) {
+      console.error("Failed to load logs:", err);
+    }
+  };
+
+  const startNewChat = () => {
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content:
+          "Hello! I am your Loop Engineering Chatbot. I can run multi-step reasoning loops and fetch real-time data from the web using MCP tools. What would you like to research or build today?",
+      },
+    ]);
+    setActiveSessionFile(null);
+    setInputPrompt("");
+    setCurrentStep(null);
+  };
+
+  const loadSession = async (filename: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`);
+      const data = await res.json();
+      if (data.messages) {
+        setMessages(data.messages);
+        setActiveSessionFile(filename);
+      }
+    } catch (err) {
+      alert(`Failed to load session: ${err}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,11 +190,19 @@ export function App() {
     setLoading(true);
     setCurrentStep(1);
 
+    // Format previous messages as multi-turn history (excluding welcome prompt)
+    const history = messages
+      .filter((m) => m.id !== "welcome" && m.content)
+      .map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
     try {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query }),
+        body: JSON.stringify({ message: query, history }),
       });
 
       if (!response.body) throw new Error("No response body from server");
@@ -165,12 +221,12 @@ export function App() {
         const lines = buffer.split("\n\n");
         buffer = lines.pop() || "";
 
-        for (const block of lines) {
-          if (!block.trim()) continue;
-          const eventMatch = /^event:\s*(.+)$/m.exec(block);
-          const dataMatch = /^data:\s*(.+)$/m.exec(block);
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const eventMatch = line.match(/^event:\s*(\w+)/m);
+          const dataMatch = line.match(/^data:\s*(.*)/m);
 
-          const event = eventMatch ? eventMatch[1].trim() : "message";
+          const event = eventMatch ? eventMatch[1] : "message";
           let data: any = {};
           if (dataMatch) {
             try {
@@ -226,6 +282,7 @@ export function App() {
                   : m
               )
             );
+            fetchLogs(); // refresh saved logs list
           }
         }
       }
@@ -260,7 +317,7 @@ export function App() {
           padding: "20px 16px",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <div
             style={{
               width: 36,
@@ -277,6 +334,112 @@ export function App() {
           <div>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Loop Engg</h2>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000 · MCP Protocol</div>
+          </div>
+        </div>
+
+        {/* New Chat Primary Action Button */}
+        <button
+          onClick={startNewChat}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            padding: "10px 14px",
+            borderRadius: 8,
+            background: "var(--accent)",
+            color: "#ffffff",
+            border: "none",
+            cursor: "pointer",
+            fontSize: 13,
+            fontWeight: 600,
+            marginBottom: 16,
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.9")}
+          onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+        >
+          <PlusCircle size={16} /> New Chat
+        </button>
+
+        {/* Past Sessions Browser */}
+        <div
+          style={{
+            background: "var(--bg-card)",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 16,
+            border: "1px solid var(--border-color)",
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: 180,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "var(--text-muted)",
+              marginBottom: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <History size={13} color="var(--accent)" /> PAST SESSIONS ({savedSessions.length})
+            </span>
+            <span
+              style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
+              onClick={fetchLogs}
+              title="Refresh saved sessions"
+            >
+              <RefreshCw size={12} />
+            </span>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+            {savedSessions.length === 0 ? (
+              <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
+                No past logs yet.
+              </div>
+            ) : (
+              savedSessions.map((session) => {
+                const isActive = activeSessionFile === session.filename;
+                return (
+                  <div
+                    key={session.filename}
+                    onClick={() => loadSession(session.filename)}
+                    title={`Click to load: ${session.filename}`}
+                    style={{
+                      padding: "6px 8px",
+                      borderRadius: 6,
+                      fontSize: 11,
+                      cursor: "pointer",
+                      background: isActive ? "rgba(37, 99, 235, 0.12)" : "var(--bg-secondary)",
+                      border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)" }}>
+                      <MessageSquare size={11} color="var(--accent)" />
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {session.filename.replace(".md", "")}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                      {session.preview}
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -588,7 +751,29 @@ export function App() {
                     }}
                   >
                     {m.content ? (
-                      <MarkdownRenderer content={m.content} />
+                      <>
+                        <MarkdownRenderer content={m.content} />
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            marginTop: 12,
+                            paddingTop: 8,
+                            borderTop: "1px solid var(--border-color)",
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                          }}
+                        >
+                          <span>Tokens: ~{Math.round(m.content.length / 3.5)}</span>
+                          <span>Length: {m.content.length} chars</span>
+                          {m.iterations && (
+                            <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>
+                              Resolved in {m.iterations} iteration(s)
+                            </span>
+                          )}
+                        </div>
+                      </>
                     ) : m.isStreaming ? (
                       <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
                         Reasoning through tool outputs...

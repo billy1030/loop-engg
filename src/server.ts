@@ -6,7 +6,11 @@ import { loadConfig } from "./config/index.js";
 import { LoopConfig, MCPServerDef } from "./config/schema.js";
 import { MCPClientManager } from "./mcp/client-manager.js";
 import { LoopOrchestrator } from "./engine/loop-orchestrator.js";
-import { saveConversationLog } from "./logger/conversation-logger.js";
+import {
+  saveConversationLog,
+  listConversationLogs,
+  parseConversationLog,
+} from "./logger/conversation-logger.js";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7000;
 
@@ -99,9 +103,9 @@ app.get("/api/tools", (req, res) => {
   res.json({ tools, discoveredTools });
 });
 
-// 4. Chat with Streaming Events (SSE)
+// 4. Chat with Streaming Events (SSE) and Multi-Turn History Support
 app.post("/api/chat", async (req, res) => {
-  const { message } = req.body;
+  const { message, history } = req.body;
   if (!message) {
     return res.status(400).json({ error: "Message is required." });
   }
@@ -127,67 +131,92 @@ app.post("/api/chat", async (req, res) => {
   try {
     const orchestrator = new LoopOrchestrator(config, mcpManager);
 
-    await orchestrator.run(message, {
-      onStepStart: (iteration) => {
-        sendEvent("step_start", { iteration });
-      },
-      onToolCall: (toolName, toolArgs, serverName) => {
-        console.log(`[Loop Server] 🛠️ Tool invoked: "${toolName}" via MCP Server: [${serverName}]`);
-        sessionToolCalls.push({
-          toolName,
-          serverName: serverName || "unknown",
-          args: toolArgs,
-          timestamp: Date.now(),
-        });
-        sendEvent("tool_call", {
-          toolName,
-          serverName: serverName || "unknown",
-          args: toolArgs,
-          timestamp: Date.now(),
-        });
-      },
-      onToolResult: (toolName, result, serverName) => {
-        console.log(`[Loop Server] ✅ Tool completed: "${toolName}" [${serverName}] (${result.length} chars)`);
-        const existing = sessionToolCalls.find((t) => t.toolName === toolName && !t.result);
-        if (existing) {
-          existing.result = result;
-          if (serverName) existing.serverName = serverName;
-        }
-        sendEvent("tool_result", {
-          toolName,
-          serverName: serverName || "unknown",
-          result,
-          timestamp: Date.now(),
-        });
-      },
-      onComplete: (answer, iterations) => {
-        // Save conversation log in markdown format with date-time filename
-        try {
-          saveConversationLog({
-            userPrompt: message,
-            model: config.llm.model,
-            iterations,
-            toolCalls: sessionToolCalls,
-            finalAnswer: answer,
-            startTime,
-            endTime: new Date(),
+    await orchestrator.run(
+      message,
+      {
+        onStepStart: (iteration) => {
+          sendEvent("step_start", { iteration });
+        },
+        onToolCall: (toolName, toolArgs, serverName) => {
+          console.log(`[Loop Server] 🛠️ Tool invoked: "${toolName}" via MCP Server: [${serverName}]`);
+          sessionToolCalls.push({
+            toolName,
+            serverName: serverName || "unknown",
+            args: toolArgs,
+            timestamp: Date.now(),
           });
-        } catch (logErr: any) {
-          console.error(`[Conversation Logger] Failed to save log: ${logErr.message}`);
-        }
+          sendEvent("tool_call", {
+            toolName,
+            serverName: serverName || "unknown",
+            args: toolArgs,
+            timestamp: Date.now(),
+          });
+        },
+        onToolResult: (toolName, result, serverName) => {
+          console.log(`[Loop Server] ✅ Tool completed: "${toolName}" [${serverName}] (${result.length} chars)`);
+          const existing = sessionToolCalls.find((t) => t.toolName === toolName && !t.result);
+          if (existing) {
+            existing.result = result;
+            if (serverName) existing.serverName = serverName;
+          }
+          sendEvent("tool_result", {
+            toolName,
+            serverName: serverName || "unknown",
+            result,
+            timestamp: Date.now(),
+          });
+        },
+        onComplete: (answer, iterations) => {
+          // Save conversation log in markdown format with date-time filename
+          try {
+            saveConversationLog({
+              userPrompt: message,
+              model: config.llm.model,
+              iterations,
+              toolCalls: sessionToolCalls,
+              finalAnswer: answer,
+              startTime,
+              endTime: new Date(),
+            });
+          } catch (logErr: any) {
+            console.error(`[Conversation Logger] Failed to save log: ${logErr.message}`);
+          }
 
-        sendEvent("complete", { answer, iterations });
-        res.write("event: end\ndata: {}\n\n");
-        res.end();
+          sendEvent("complete", { answer, iterations });
+          res.write("event: end\ndata: {}\n\n");
+          res.end();
+        },
+        onError: (err) => {
+          sendEvent("error", { message: err.message });
+          res.end();
+        },
       },
-      onError: (err) => {
-        sendEvent("error", { message: err.message });
-        res.end();
-      },
-    });
+      history
+    );
   } catch (err: any) {
     sendEvent("error", { message: err.message });
     res.end();
+  }
+});
+
+// 5. List Saved Conversation Logs
+app.get("/api/logs", (req, res) => {
+  try {
+    const logs = listConversationLogs();
+    res.json({ logs });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. Get Parsed Conversation Log to Reload into UI
+app.get("/api/logs/:filename", (req, res) => {
+  try {
+    const filename = req.params.filename;
+    const session = parseConversationLog(filename);
+    res.json(session);
+  } catch (err: any) {
+    res.status(404).json({ error: err.message });
   }
 });
 

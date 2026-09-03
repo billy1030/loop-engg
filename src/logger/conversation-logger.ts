@@ -101,3 +101,143 @@ export function saveConversationLog(session: ConversationSession, baseDir: strin
 
   return filePath;
 }
+
+export interface ConversationSummary {
+  filename: string;
+  timestamp: string;
+  model: string;
+  iterations: number;
+  toolCount: number;
+  preview: string;
+}
+
+/**
+ * List all saved conversation markdown files ordered by newest first
+ */
+export function listConversationLogs(baseDir: string = "logs"): ConversationSummary[] {
+  const logsDir = path.resolve(process.cwd(), baseDir);
+  if (!fs.existsSync(logsDir)) {
+    return [];
+  }
+
+  const files = fs
+    .readdirSync(logsDir)
+    .filter((f) => f.endsWith(".md") && f !== "README.md");
+
+  const results: ConversationSummary[] = [];
+
+  for (const filename of files) {
+    try {
+      const fullPath = path.join(logsDir, filename);
+      const content = fs.readFileSync(fullPath, "utf-8");
+
+      // Extract metadata
+      const modelMatch = content.match(/- \*\*Model\*\*: `([^`]+)`/);
+      const iterMatch = content.match(/- \*\*Iterations\*\*: (\d+)/);
+      const toolMatch = content.match(/- \*\*Total Tool Calls\*\*: (\d+)/);
+      const timeMatch = content.match(/- \*\*Date \/ Time\*\*: ([^\n\r]+)/);
+
+      // Extract user prompt
+      const promptMatch = content.match(/## User Prompt\r?\n([\s\S]*?)\r?\n---/);
+      const prompt = promptMatch ? promptMatch[1].trim() : "No prompt recorded";
+
+      results.push({
+        filename,
+        timestamp: timeMatch ? timeMatch[1].split(" (")[0] : filename.replace(".md", ""),
+        model: modelMatch ? modelMatch[1] : "Unknown",
+        iterations: iterMatch ? parseInt(iterMatch[1], 10) : 1,
+        toolCount: toolMatch ? parseInt(toolMatch[1], 10) : 0,
+        preview: prompt.length > 80 ? prompt.slice(0, 80) + "..." : prompt,
+      });
+    } catch (err) {
+      console.warn(`[Conversation Logger] Failed to parse summary for ${filename}`);
+    }
+  }
+
+  // Sort by filename (which is timestamp YYYY-MM-DD_HH-mm-ss) descending
+  return results.sort((a, b) => b.filename.localeCompare(a.filename));
+}
+
+/**
+ * Parses a saved conversation markdown file back into structured messages & tool calls
+ */
+export function parseConversationLog(filename: string, baseDir: string = "logs") {
+  const fullPath = path.resolve(process.cwd(), baseDir, filename);
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`Log file "${filename}" does not exist.`);
+  }
+
+  const content = fs.readFileSync(fullPath, "utf-8");
+
+  // Extract User Prompt
+  const promptMatch = content.match(/## User Prompt\r?\n([\s\S]*?)\r?\n---/);
+  const userPrompt = promptMatch ? promptMatch[1].trim() : "";
+
+  // Extract Final Answer
+  const answerMatch = content.match(/## Final Synthesized Answer\r?\n\r?\n([\s\S]*)$/);
+  const finalAnswer = answerMatch ? answerMatch[1].trim() : "";
+
+  // Extract Tool Calls
+  const toolCalls: Array<{
+    id: string;
+    toolName: string;
+    serverName?: string;
+    args: any;
+    result?: string;
+    timestamp: number;
+  }> = [];
+
+  const toolSections = content.split(/### \[Step \d+\] Tool: `([^`]+)`/g);
+  // Pattern gives: [preamble, toolName1, body1, toolName2, body2, ...]
+  for (let i = 1; i < toolSections.length; i += 2) {
+    const toolName = toolSections[i];
+    const body = toolSections[i + 1] || "";
+
+    const serverMatch = body.match(/- \*\*Owning MCP Server\*\*: `([^`]+)`/);
+    const serverName = serverMatch ? serverMatch[1] : undefined;
+
+    const timeMatch = body.match(/- \*\*Timestamp\*\*: ([^\n\r]+)/);
+    const timestamp = timeMatch ? new Date(timeMatch[1]).getTime() : Date.now();
+
+    const argsMatch = body.match(/#### Parameters\r?\n```json\r?\n([\s\S]*?)\r?\n```/);
+    let args = {};
+    if (argsMatch) {
+      try {
+        args = JSON.parse(argsMatch[1]);
+      } catch {}
+    }
+
+    const obsMatch = body.match(/#### Observation \(Result\)\r?\n```text\r?\n([\s\S]*?)\r?\n```/);
+    const result = obsMatch ? obsMatch[1].trim() : undefined;
+
+    toolCalls.push({
+      id: `tool-${timestamp}-${i}`,
+      toolName,
+      serverName,
+      args,
+      result,
+      timestamp,
+    });
+  }
+
+  // Build reconstructed Message[]
+  const messages = [
+    {
+      id: `user-${Date.now()}-1`,
+      role: "user" as const,
+      content: userPrompt,
+    },
+    {
+      id: `assistant-${Date.now()}-2`,
+      role: "assistant" as const,
+      content: finalAnswer,
+      toolCalls,
+      iterations: toolCalls.length > 0 ? toolCalls.length : 1,
+    },
+  ];
+
+  return {
+    filename,
+    messages,
+  };
+}

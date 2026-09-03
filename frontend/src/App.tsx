@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search
 } from "lucide-react";
+import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
 interface ToolCallLog {
   id: string;
@@ -469,12 +470,15 @@ export function App() {
                       borderRadius: "16px 16px 16px 2px",
                       padding: "16px 20px",
                       color: "#f0f6fc",
-                      fontSize: 14,
-                      lineHeight: 1.6,
-                      whiteSpace: "pre-wrap",
                     }}
                   >
-                    {m.content || (m.isStreaming ? "Reasoning through tool outputs..." : "")}
+                    {m.content ? (
+                      <MarkdownRenderer content={m.content} />
+                    ) : m.isStreaming ? (
+                      <span style={{ color: "#8b949e", fontStyle: "italic" }}>
+                        Reasoning through tool outputs...
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               )}

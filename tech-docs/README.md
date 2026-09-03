@@ -14,6 +14,7 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [06. Technology Stack Specification](./06-technology-stack.md) | Comprehensive stack breakdown: Node.js 26 ESM, Express 5, React 19, Vite 8, MCP SDK, MiniMax-M3 integration, and SSE streaming. |
 | [07. Conversation Memory & State Continuity](./07-conversation-memory-and-state.md) | In-Memory vs. File-Based architectural trade-offs, multi-turn state continuity, hybrid design, sliding window context governance. |
 | [08. UI/UX & Session Management Specification](./08-ui-ux-and-session-management.md) | Web UI design tokens, collapsible bottom Active Model accordion, session re-hydration sequence, and token badges. |
+| [09. Multi-MCP Extensibility & Skills Prompt Patterns](./09-multi-mcp-and-skills-prompt-patterns.md) | Architectural rationale behind Skills & Protocols, multi-MCP categories (Filesystem, DB, GitHub, CLI), declarative configs, and safety guardrails. |
 
 ---
 

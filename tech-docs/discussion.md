@@ -60,9 +60,69 @@ flowchart TD
   - Re-binding network HSM key prefix to new server SID: `ksputilcons.exe chkeysowner myDemoCA <Old_SID> <New_SID>`
   - Restoring hardware cryptographic association: `certutil -repairstore My "{Serialnumber}"`
 
+## 3. Loop Engineering 做嘢嘅方法學 (The "How-It-Works" Methodology)
+
+Loop Engineering 的核心價值不在於它預先「背誦了什麼知識」，而在於它面對未知、故障與複雜目標時所展現出的 **「5 大做事方法論」**：
+
+| 維度 | 傳統單次問答 (One-shot Prompting) | Loop Engineering (循環工程) |
+| :--- | :--- | :--- |
+| **思考機制** | 一次性猜測並直接給出答案 | **ReAct 認知循環**：Thought ➜ Action ➜ Observation ➜ Reflection |
+| **面對錯誤** | 遇錯即拋出 Exception 中斷退出 | **Failure as Observation**：把錯誤視為有價值的反饋，下輪自動調優 |
+| **調用深度** | 僅看搜尋引擎列表的 2 行摘要 (Snippet) | **Deep Retrieval**：點入真實網頁深讀，抽取命令列指令與白皮書細節 |
+| **工具協同** | 單一工具通道，卡死即無解 | **Cross-MCP Cognitive Routing**：多伺服器互備，運行時自主切換 |
+| **終止條件** | 字數達到預設或隨意停下 | **Evidence-Driven Completion**：決策拼圖完整閉環後才主動終止 |
+
+```mermaid
+flowchart TD
+    subgraph Traditional [傳統單次 Chatbot]
+        U1[使用者問題] --> M1[一次性生成]
+        M1 -->|猜測/幻覺/遇錯即中斷| R1[交出不穩定答案]
+    end
+
+    subgraph LoopEngg [Loop Engineering 做嘢方法]
+        U2[使用者問題] --> T[1. 思考與假設 Thought]
+        T --> A[2. 行動 Action: 調用工具]
+        A --> O[3. 感知 Observation: 取得結果或錯誤]
+        O --> R{4. 反思與決策 Reflection}
+        R -->|證據不足或出錯| T
+        R -->|多源驗證/自成閉環| C[5. 最終方案 Synthesis]
+    end
+```
+
+### 深入剖析這 5 個做事特徵：
+
+#### 1. 把「失敗」當作正常資訊（Failure as Observation）
+- 在第 1 步遇到 `fetch failed`，系統沒有崩潰退出。
+- 它把這個 Error 作為環境反饋（`role: "tool"`）吸納進上下文：「呢條路行唔通，我分析點解行唔通，換個方法再試」。
+
+#### 2. 自適應查詢調優（Adaptive Query Refinement）
+- **第 1 步**：用口語化字眼試探 `"CA server HSM migration new HSM key cannot export"` ➜ 失敗。
+- **第 2 步**：模型自主分析問題，**將關鍵字升級為行業標準術語** `"Microsoft ADCS non-exportable cross-signing"` ➜ 立即精準命中微軟官方指南。
+- **方法論**：遇到阻礙時主動重構輸入參數，而非盲目重複同一動作。
+
+#### 3. 縱深精讀，拒絕浮於表面（Deep Retrieval vs. Surface Skimming）
+- 普通搜尋只瀏覽 Search Engine 摘要，極易產生幻覺。
+- Loop Engineering 則是 **「發現線索 ➜ 深入調查」**：
+  - 搜到微軟指南 ➜ 呼叫 `fetch_page` 入去睇內文。
+  - 搜到 Securosys 白皮書 ➜ 再呼叫 `fetch_page` 爬入去睇真實指令。
+  - 成功挖出實質的 PowerShell 和命令列指令（`ksputilcons.exe`、`certutil -repairstore`）。
+
+#### 4. 跨工具/跨通道自主容錯切換（Cross-MCP Cognitive Routing）
+- 當 `web_search`（DuckDuckGo 爬蟲）因為高頻查詢觸發反爬蟲挑戰時，固定腳本通常會卡死。
+- 但在 Loop Engineering 下，它重新檢視手頭上的 MCP Tools 清單，**發現另一個獨立通道 —— `minimax_search`（MiniMax 官方 API）**。
+- 它**主動放棄失效的工具，無縫切換到另一個 Server 的工具**，瞬間拿回了 8 篇極高質量的 2026 最新企業 Playbook。
+
+#### 5. 證據完備才下結論（Evidence-Driven Termination）
+- 它不是固定數著「行 3 步就交差」，而是在腦海中建立**決策拼圖**：
+  - 拼圖 1：非導出私鑰能否複製？（證實：物理上絕對不能）
+  - 拼圖 2：替代方案是什麼？（證實：雙向交叉簽名 Cross-Signing）
+  - 拼圖 3：現有客戶端如何過渡？（證實：雙軌並行最少 6 個月，等證書自然過期）
+  - 拼圖 4：回滾與修復指令是什麼？（掌握：`certutil -repairstore`）
+- 當所有證據拼圖全部集齊，它才主動結束工具調用（Terminate Loop），輸出高信度的最終方案。
+
 ---
 
-## 3. Core Architectural Principles
+## 4. Core Architectural Principles
 
 ### 1. Error Resilience as First-Class State
 In standard architectures, an API exception or rate-limit error terminates the workflow. In the **Loop Engineering Protocol**:
@@ -92,7 +152,7 @@ To prevent unbounded iteration when external services are down:
 
 ---
 
-## 4. Final Synthesized Enterprise Solution
+## 5. Final Synthesized Enterprise Solution
 
 The culmination of the 10-step autonomous loop was a battle-tested enterprise migration blueprint:
 

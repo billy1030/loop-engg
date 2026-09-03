@@ -58,6 +58,7 @@ export class BigFixStreamableHttpClient {
           method: "POST",
           agent,
           headers,
+          timeout: 5000,
         },
         (res) => {
           // If server provides or updates Mcp-Session-Id
@@ -103,6 +104,9 @@ export class BigFixStreamableHttpClient {
         }
       );
 
+      req.on("timeout", () => {
+        req.destroy(new Error("BigFix MCP request timed out after 5000ms"));
+      });
       req.on("error", reject);
       req.write(postData);
       req.end();

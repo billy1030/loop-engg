@@ -117,7 +117,9 @@ app.post("/api/chat", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   const sendEvent = (event: string, data: any) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (!res.writableEnded) {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    }
   };
 
   const startTime = new Date();
@@ -184,19 +186,25 @@ app.post("/api/chat", async (req, res) => {
           }
 
           sendEvent("complete", { answer, iterations });
-          res.write("event: end\ndata: {}\n\n");
-          res.end();
+          if (!res.writableEnded) {
+            res.write("event: end\ndata: {}\n\n");
+            res.end();
+          }
         },
         onError: (err) => {
           sendEvent("error", { message: err.message });
-          res.end();
+          if (!res.writableEnded) {
+            res.end();
+          }
         },
       },
       history
     );
   } catch (err: any) {
     sendEvent("error", { message: err.message });
-    res.end();
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
 });
 
@@ -254,10 +262,14 @@ app.use((req, res) => {
 
 async function start() {
   await initMCP();
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`\n🚀 Server listening on http://localhost:${PORT}`);
     console.log(`⚡ Testing Port: ${PORT}`);
     console.log(`🔌 MCP Tools active: ${mcpManager.getOpenAITools().length}\n`);
+  });
+
+  server.on("error", (err: any) => {
+    console.error(`[Server Error] Could not start server on port ${PORT}:`, err.message);
   });
 }
 

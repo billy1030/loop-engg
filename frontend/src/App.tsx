@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
+import { AlertModal, type ModalAlertProps } from "./components/AlertModal";
 
 interface ToolCallLog {
   id: string;
@@ -90,6 +91,34 @@ export function App() {
   const [showModelPanel, setShowModelPanel] = useState<boolean>(false);
   const [showPastSessions, setShowPastSessions] = useState<boolean>(true);
   const [mcpViewMode, setMcpViewMode] = useState<"full" | "minimize" | "hide">("full");
+  const [mcpJsonText, setMcpJsonText] = useState<string>("");
+  const [mcpJsonError, setMcpJsonError] = useState<string | null>(null);
+  const [alertPrompt, setAlertPrompt] = useState<Omit<ModalAlertProps, "onClose"> | null>(null);
+
+  const showAlert = (message: string, type: "success" | "error" | "warning" | "info" = "info", title?: string) => {
+    setAlertPrompt({
+      message,
+      type,
+      title,
+      isConfirm: false,
+    });
+  };
+
+  const showConfirm = (
+    message: string,
+    onConfirm: () => void,
+    title?: string,
+    confirmLabel?: string
+  ) => {
+    setAlertPrompt({
+      message,
+      type: "warning",
+      title: title || "Confirmation",
+      isConfirm: true,
+      confirmLabel: confirmLabel || "Confirm",
+      onConfirm,
+    });
+  };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -134,8 +163,8 @@ export function App() {
         setMessages(data.messages);
         setActiveSessionFile(filename);
       }
-    } catch (err) {
-      alert(`Failed to load session: ${err}`);
+    } catch (err: any) {
+      showAlert(`Failed to load session:\n${err.message || err}`, "error", "Load Session Failed");
     } finally {
       setLoading(false);
     }
@@ -143,27 +172,30 @@ export function App() {
 
   const deleteSession = async (e: React.MouseEvent, filename: string) => {
     e.stopPropagation(); // prevent triggering loadSession
-    if (!confirm(`Are you sure you want to delete this session log?\n(${filename})`)) {
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`, {
-        method: "DELETE",
-      });
-      if (res.ok) {
-        // If the deleted session was currently open in chat, reset to new chat
-        if (activeSessionFile === filename) {
-          startNewChat();
+    showConfirm(
+      `確定要刪除以下歷史會話記錄嗎？\n檔名: ${filename}\n\n此操作將從磁碟永久移除，無法復原！`,
+      async () => {
+        try {
+          const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`, {
+            method: "DELETE",
+          });
+          if (res.ok) {
+            if (activeSessionFile === filename) {
+              startNewChat();
+            }
+            await fetchLogs();
+            showAlert("會話記錄已成功刪除。", "success", "刪除成功");
+          } else {
+            const data = await res.json();
+            showAlert(`刪除失敗: ${data.error || "Unknown error"}`, "error", "刪除失敗");
+          }
+        } catch (err: any) {
+          showAlert(`刪除請求出錯: ${err.message}`, "error", "請求錯誤");
         }
-        await fetchLogs();
-      } else {
-        const data = await res.json();
-        alert(`Failed to delete session: ${data.error || "Unknown error"}`);
-      }
-    } catch (err: any) {
-      alert(`Error deleting session: ${err.message}`);
-    }
+      },
+      "永久刪除確認",
+      "確認刪除"
+    );
   };
 
   useEffect(() => {
@@ -175,6 +207,9 @@ export function App() {
       const res = await fetch("/api/config");
       const data = await res.json();
       setConfig(data);
+      if (data?.mcpServers) {
+        setMcpJsonText(JSON.stringify(data.mcpServers, null, 2));
+      }
     } catch (err) {
       console.error("Failed to load config:", err);
     }
@@ -182,18 +217,37 @@ export function App() {
 
   const saveConfig = async () => {
     if (!config) return;
+
+    let updatedMcpServers = config.mcpServers;
+    if (mcpJsonText) {
+      try {
+        updatedMcpServers = JSON.parse(mcpJsonText);
+        setMcpJsonError(null);
+      } catch (jsonErr: any) {
+        setMcpJsonError(jsonErr.message);
+        showAlert(`MCP JSON 語法無效，請修正後再儲存：\n${jsonErr.message}`, "error", "JSON 語法錯誤");
+        return;
+      }
+    }
+
+    const payload = {
+      ...config,
+      mcpServers: updatedMcpServers,
+    };
+
     try {
       const res = await fetch("/api/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
-        alert("Configuration saved successfully!");
+        setConfig(payload);
+        showAlert("系統配置與 MCP 伺服器已成功儲存並完成熱重載！", "success", "配置儲存成功");
         setShowConfig(false);
       }
-    } catch (err) {
-      alert("Failed to save config.");
+    } catch (err: any) {
+      showAlert(`儲存設定失敗: ${err.message || "網路錯誤"}`, "error", "儲存失敗");
     }
   };
 
@@ -1486,19 +1540,25 @@ export function App() {
                   <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>Hot-reloaded automatically</span>
                 </div>
                 <textarea
-                  value={JSON.stringify(config.mcpServers, null, 2)}
+                  value={mcpJsonText}
                   onChange={(e) => {
+                    const val = e.target.value;
+                    setMcpJsonText(val);
                     try {
-                      const parsed = JSON.parse(e.target.value);
-                      setConfig({ ...config, mcpServers: parsed });
-                    } catch {}
+                      JSON.parse(val);
+                      setMcpJsonError(null);
+                    } catch (err: any) {
+                      setMcpJsonError(err.message);
+                    }
                   }}
+                  placeholder='{\n  "server-name": {\n    "command": "node",\n    "args": [...],\n    "enabled": true\n  }\n}'
+                  spellCheck={false}
                   style={{
                     flex: 1,
                     minHeight: 330,
                     width: "100%",
                     background: "var(--bg-primary)",
-                    border: "1px solid var(--border-color)",
+                    border: mcpJsonError ? "1px solid var(--accent-rose, #ef4444)" : "1px solid var(--border-color)",
                     padding: 12,
                     borderRadius: 6,
                     color: "var(--accent-emerald)",
@@ -1508,9 +1568,15 @@ export function App() {
                     resize: "vertical",
                   }}
                 />
-                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.4 }}>
-                  💡 Plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
-                </div>
+                {mcpJsonError ? (
+                  <div style={{ fontSize: 11, color: "#f87171", marginTop: 6, lineHeight: 1.3 }}>
+                    ⚠️ Syntax error: {mcpJsonError}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.4 }}>
+                    💡 Plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1681,6 +1747,14 @@ export function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* SLS Style Alert / Confirm Dialog */}
+      {alertPrompt && (
+        <AlertModal
+          {...alertPrompt}
+          onClose={() => setAlertPrompt(null)}
+        />
       )}
     </div>
   );

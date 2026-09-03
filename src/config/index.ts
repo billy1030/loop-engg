@@ -22,9 +22,9 @@ export function loadConfig(configPath?: string): LoopConfig {
   // Merge with environment variables if available
   const merged = {
     llm: {
-      baseUrl: process.env.LLM_BASE_URL || fileContent.llm?.baseUrl || "https://api.openai.com/v1",
-      apiKey: process.env.LLM_API_KEY || fileContent.llm?.apiKey || "",
-      model: process.env.LLM_MODEL || fileContent.llm?.model || "gpt-4o",
+      baseUrl: process.env.LLM_BASE_URL || (fileContent.llm?.baseUrl && !fileContent.llm.baseUrl.startsWith("${") ? fileContent.llm.baseUrl : "https://api.minimaxi.com/v1"),
+      apiKey: process.env.LLM_API_KEY || process.env.MINIMAX_API_KEY || process.env.OPENAI_API_KEY || (fileContent.llm?.apiKey && !fileContent.llm.apiKey.startsWith("${") ? fileContent.llm.apiKey : ""),
+      model: process.env.LLM_MODEL || fileContent.llm?.model || "MiniMax-M3",
       temperature: fileContent.llm?.temperature ?? 0.7,
       maxTokens: fileContent.llm?.maxTokens ?? 4096,
     },

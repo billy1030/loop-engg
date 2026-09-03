@@ -23,8 +23,13 @@ export const PromptsConfigSchema = z.object({
 });
 
 export const MCPServerDefSchema = z.object({
-  command: z.string(),
+  type: z.enum(["stdio", "http", "streamable-http"]).default("stdio"),
+  command: z.string().optional(),
   args: z.array(z.string()).default([]),
+  url: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
+  strictSSL: z.boolean().default(false),
+  transport: z.string().optional(),
   env: z.record(z.string(), z.string()).optional(),
   enabled: z.boolean().default(true),
   description: z.string().optional(),

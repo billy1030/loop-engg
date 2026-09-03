@@ -1,6 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { MCPServerDef } from "../config/schema.js";
+import { BigFixStreamableHttpClient } from "./bigfix-client.js";
 
 export interface DiscoveredTool {
   serverName: string;
@@ -19,7 +20,8 @@ export interface OpenAIToolDefinition {
 }
 
 export class MCPClientManager {
-  private clients = new Map<string, { client: Client; transport: StdioClientTransport }>();
+  private stdioClients = new Map<string, { client: Client; transport: StdioClientTransport }>();
+  private httpClients = new Map<string, BigFixStreamableHttpClient>();
   private tools = new Map<string, DiscoveredTool>();
 
   /**
@@ -30,44 +32,90 @@ export class MCPClientManager {
       if (!def.enabled) continue;
 
       try {
-        const envRecord: Record<string, string> = {};
-        for (const [k, v] of Object.entries(process.env)) {
-          if (v !== undefined) envRecord[k] = v;
-        }
-        if (def.env) {
-          for (const [k, v] of Object.entries(def.env)) {
-            if (v !== undefined) envRecord[k] = String(v);
+        const isHttp = def.type === "http" || def.type === "streamable-http" || def.transport === "streamable-http" || (def.url && !def.command);
+
+        if (isHttp && def.url) {
+          // Resolve environment variables in headers or URL
+          const resolvedHeaders: Record<string, string> = {};
+          if (def.headers) {
+            for (const [hk, hv] of Object.entries(def.headers)) {
+              let val = hv;
+              for (const [envK, envV] of Object.entries(process.env)) {
+                if (envV !== undefined) {
+                  val = val.replace(`\${${envK}}`, envV);
+                }
+              }
+              resolvedHeaders[hk] = val;
+            }
           }
-        }
 
-        const transport = new StdioClientTransport({
-          command: def.command,
-          args: def.args,
-          env: envRecord,
-        });
-
-        const client = new Client(
-          {
-            name: `loop-client-${serverName}`,
-            version: "1.0.0",
-          },
-          {
-            capabilities: {},
+          // Extract token from Authorization header or specific env
+          let token = process.env.BIGFIX_BEARER_TOKEN || "9qdVuQuIkXazX7eRa9s98LRB10VlXsze5uuYTQAAAAI";
+          if (resolvedHeaders["Authorization"]) {
+            token = resolvedHeaders["Authorization"].replace(/^Bearer\s+/i, "");
           }
-        );
 
-        await client.connect(transport);
-        this.clients.set(serverName, { client, transport });
-
-        // Query server tools
-        const toolsResult = await client.listTools();
-        for (const tool of toolsResult.tools) {
-          this.tools.set(tool.name, {
-            serverName,
-            name: tool.name,
-            description: tool.description,
-            inputSchema: tool.inputSchema,
+          const httpClient = new BigFixStreamableHttpClient({
+            url: def.url,
+            token,
+            readOnly: resolvedHeaders["X-Bes-Mcp-Read-Only"] !== "false",
+            disableHitl: resolvedHeaders["X-Bes-Mcp-Disable-Hitl"] === "true",
           });
+
+          await httpClient.connect();
+          this.httpClients.set(serverName, httpClient);
+
+          const toolsList = await httpClient.listTools();
+          for (const tool of toolsList) {
+            this.tools.set(tool.name, {
+              serverName,
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+            });
+          }
+          console.log(`[MCP] Connected to remote HTTP server "${serverName}" (${toolsList.length} tools registered)`);
+        } else if (def.command) {
+          const envRecord: Record<string, string> = {};
+          for (const [k, v] of Object.entries(process.env)) {
+            if (v !== undefined) envRecord[k] = v;
+          }
+          if (def.env) {
+            for (const [k, v] of Object.entries(def.env)) {
+              if (v !== undefined) envRecord[k] = String(v);
+            }
+          }
+
+          const transport = new StdioClientTransport({
+            command: def.command,
+            args: def.args,
+            env: envRecord,
+          });
+
+          const client = new Client(
+            {
+              name: `loop-client-${serverName}`,
+              version: "1.0.0",
+            },
+            {
+              capabilities: {},
+            }
+          );
+
+          await client.connect(transport);
+          this.stdioClients.set(serverName, { client, transport });
+
+          // Query server tools
+          const toolsResult = await client.listTools();
+          for (const tool of toolsResult.tools) {
+            this.tools.set(tool.name, {
+              serverName,
+              name: tool.name,
+              description: tool.description,
+              inputSchema: tool.inputSchema,
+            });
+          }
+          console.log(`[MCP] Connected to stdio server "${serverName}" (${toolsResult.tools.length} tools registered)`);
         }
       } catch (err: any) {
         console.error(`[MCP] Failed to connect to server "${serverName}":`, err.message);
@@ -112,7 +160,23 @@ export class MCPClientManager {
       throw new Error(`Tool "${name}" is not registered on any active MCP server.`);
     }
 
-    const target = this.clients.get(toolDef.serverName);
+    // 1. Check HTTP clients (e.g. BigFix)
+    const httpClient = this.httpClients.get(toolDef.serverName);
+    if (httpClient) {
+      const response = await httpClient.callTool(name, args);
+      if (response && response.content && Array.isArray(response.content)) {
+        return response.content
+          .map((item: any) => {
+            if (item.type === "text") return item.text;
+            return JSON.stringify(item);
+          })
+          .join("\n");
+      }
+      return JSON.stringify(response);
+    }
+
+    // 2. Check Stdio clients
+    const target = this.stdioClients.get(toolDef.serverName);
     if (!target) {
       throw new Error(`Server "${toolDef.serverName}" for tool "${name}" is not connected.`);
     }
@@ -147,7 +211,7 @@ export class MCPClientManager {
    * Gracefully close all MCP client connections
    */
   async closeAll(): Promise<void> {
-    for (const [serverName, { client, transport }] of this.clients.entries()) {
+    for (const [serverName, { client, transport }] of this.stdioClients.entries()) {
       try {
         await client.close();
         await transport.close();
@@ -155,7 +219,8 @@ export class MCPClientManager {
         // Ignore closing errors
       }
     }
-    this.clients.clear();
+    this.stdioClients.clear();
+    this.httpClients.clear();
     this.tools.clear();
   }
 }

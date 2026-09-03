@@ -10,6 +10,7 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [02. MCP Integration & Schema Translation](./02-mcp-integration-guide.md) | Model Context Protocol (`@modelcontextprotocol/sdk`) mechanics, dynamic schema mapping to OpenAI tools, stdio transport. |
 | [03. Technical Challenges & Solutions](./03-technical-challenges-and-solutions.md) | Engineering post-mortems: infinite tool loops, observation bloat, Windows stdio IPC, real-time UI streaming. |
 | [04. AI Skills & Prompts Setup](./04-ai-skills-and-prompts-setup.md) | How system prompts and skills instructions are ingested, dynamic behavior configuration, MiniMax multimodal toolkit mapping. |
+| [05. Agentic Looping & Self-Correction Case Study](./discussion.md) | Real-world autopsy of tool failure (`fetch failed`), autonomous query reformulating, and multi-MCP resilience in ADCS HSM migration. |
 
 ---
 

@@ -633,13 +633,22 @@ export function App() {
             background: "var(--bg-secondary)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Activity size={18} color="#3fb950" />
-            <span style={{ fontSize: 14, fontWeight: 600 }}>Autonomous Tool Loop Inspector</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--accent-emerald)",
+                boxShadow: "0 0 8px rgba(22, 163, 74, 0.6)",
+              }}
+              title="Agent Engine Online"
+            />
+            <Activity size={16} color="var(--accent-emerald)" />
             {currentStep && (
               <span
                 style={{
-                  background: "#1f6feb",
+                  background: "var(--accent)",
                   color: "#fff",
                   padding: "2px 8px",
                   borderRadius: 12,

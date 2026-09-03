@@ -299,3 +299,44 @@ To prevent infinite loops when a service is permanently down:
    - If public scraping gets throttled by regional network boundaries, the agent can fall back to the dedicated API channel.
 2. **Transparent Observability**:
    - Exposing the live ReAct logs to the user establishes trust, demonstrating that the AI is actively cross-referencing authoritative engineering sources rather than hallucinating answers.
+
+---
+
+## 5. The Grand Finale: Synthesized Architecture Output
+
+Below is the verbatim final synthesized solution delivered by the autonomous ReAct Loop to the operator, combining all 10 steps of discovery into a production-ready blueprint:
+
+> ### 🎯 Core Philosophy: *"Don't migrate the key — migrate the trust."*
+> 
+> ```
+>             ┌──────────────────┐         ┌──────────────────┐
+>             │   OLD Root CA    │         │   NEW Root CA    │
+>             │ (old HSM key)    │         │ (new HSM key)    │
+>             └────────┬─────────┘         └────────┬─────────┘
+>                      │                            │
+>         ┌────────────┴────────────┐   ┌───────────┴────────────┐
+>         │ OLD Root signs NEW     │   │ NEW Root signs OLD    │
+>         │ Root's certificate    │   │ Root's certificate    │
+>         └────────────────────────┘   └────────────────────────┘
+>                   ↓                            ↓
+>         Both old and new clients see a complete trust path
+>         to certificates issued by EITHER CA
+> ```
+> 
+> ### 📅 1-Year Phased Rollout Schedule (300 Servers / 1000 Clients):
+> 
+> | Month | Phase | Key Milestones & Production Tasks |
+> | :---: | :--- | :--- |
+> | **Month 1** | **Discovery & Planning** | Full inventory of templates, EKUs, and dependencies. Publish an **extended-validity CRL** covering the entire 12-month migration window. |
+> | **Months 1–2** | **New CA on New HSM** | Provision the new HSM (FIPS 140-3). Generate a brand-new non-exportable key inside the hardware. Install AD CS role without touching old keys. |
+> | **Months 2–3** | **Cross-Signed Trust Bridge** | Submit NEW Root CSR to OLD Root CA. Publish cross-certificates to AIA containers. All relying parties gain bidirectional trust without GPO updates. |
+> | **Months 3–4** | **Pilot Wave** | Deploy new certificates to small canary server and client groups. Validate cross-platform trust (Windows, Linux, macOS, Java). |
+> | **Months 4–10** | **Phased Wave Rollout** | Roll out certificate replacements across 300 servers and 1000 clients upon natural renewal. Workloads switch one by one. |
+> | **Months 10–11** | **Validation & Soak Period** | Observe at least **two full renewal cycles** on the new CA. Ensure zero certificate incidents for 30 consecutive days. |
+> | **Month 12** | **Decommission & Erasure** | Gracefully stop the old CA service. Perform cryptographic zeroization/destruction of the old HSM. Remove old root from AD NTAuth. |
+> 
+> ### 🛡️ Critical Guarantees Delivered:
+> - ✅ **Zero Downtime**: Active certificates remain valid and authenticable throughout.
+> - ✅ **Instant Rollback**: If issues occur, simply continue issuing from the legacy CA.
+> - ✅ **Strict Security & Compliance**: Complies with FIPS non-exportable mandates without key wrapping risks.
+

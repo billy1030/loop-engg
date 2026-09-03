@@ -81,6 +81,7 @@ export function App() {
   const [selectedToolDetail, setSelectedToolDetail] = useState<any | null>(null);
   const [savedSessions, setSavedSessions] = useState<any[]>([]);
   const [activeSessionFile, setActiveSessionFile] = useState<string | null>(null);
+  const [showModelPanel, setShowModelPanel] = useState<boolean>(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -362,7 +363,7 @@ export function App() {
           <PlusCircle size={16} /> New Chat
         </button>
 
-        {/* Past Sessions Browser */}
+        {/* Past Sessions Browser - expanded to fill space */}
         <div
           style={{
             background: "var(--bg-card)",
@@ -372,7 +373,9 @@ export function App() {
             border: "1px solid var(--border-color)",
             display: "flex",
             flexDirection: "column",
-            maxHeight: 180,
+            flex: 1,
+            minHeight: 180,
+            overflow: "hidden",
           }}
         >
           <div
@@ -398,7 +401,7 @@ export function App() {
             </span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", flex: 1 }}>
             {savedSessions.length === 0 ? (
               <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
                 No past logs yet.
@@ -412,7 +415,7 @@ export function App() {
                     onClick={() => loadSession(session.filename)}
                     title={`Click to load: ${session.filename}`}
                     style={{
-                      padding: "6px 8px",
+                      padding: "8px 10px",
                       borderRadius: 6,
                       fontSize: 11,
                       cursor: "pointer",
@@ -433,7 +436,7 @@ export function App() {
                         {session.filename.replace(".md", "")}
                       </span>
                     </div>
-                    <div style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 3 }}>
                       {session.preview}
                     </div>
                   </div>
@@ -443,118 +446,157 @@ export function App() {
           </div>
         </div>
 
-        {/* Status Indicators */}
+        {/* Collapsible Active Model & Tools Container at Bottom */}
         <div
           style={{
             background: "var(--bg-card)",
             borderRadius: 8,
-            padding: 14,
-            marginBottom: 20,
             border: "1px solid var(--border-color)",
+            marginBottom: 12,
+            overflow: "hidden",
+            transition: "all 0.2s ease",
           }}
         >
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>ACTIVE MODEL</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6 }}>
-            <Sparkles size={16} /> {config?.llm.model || "Loading..."}
-          </div>
-          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 12, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>ACTIVE MCP SERVERS & TOOLS</span>
-            <span style={{ fontSize: 11, color: "var(--accent-emerald)", fontWeight: 600 }}>
-              {config?.tools?.length || 0} Tools
-            </span>
+          {/* Collapsible Header bar: Shows 'Active Model' when collapsed */}
+          <div
+            onClick={() => setShowModelPanel(!showModelPanel)}
+            style={{
+              padding: "10px 14px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+              background: showModelPanel ? "var(--bg-secondary)" : "transparent",
+              userSelect: "none",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Sparkles size={14} color="var(--accent)" />
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)" }}>
+                Active Model {showModelPanel ? "" : `(${config?.llm.model || "Loading..."})`}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {!showModelPanel && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 6px",
+                    borderRadius: 4,
+                    background: "rgba(37, 99, 235, 0.1)",
+                    color: "var(--accent)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {config?.tools?.length || 0} Tools
+                </span>
+              )}
+              {showModelPanel ? <ChevronDown size={15} color="var(--text-muted)" /> : <ChevronRight size={15} color="var(--text-muted)" />}
+            </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 300, overflowY: "auto" }}>
-            {config?.mcpServers &&
-              Object.entries(config.mcpServers).map(([serverKey, serverDef]: [string, any]) => {
-                const serverTools = (config.discoveredTools || []).filter(
-                  (t) => t.serverName === serverKey
-                );
+          {/* Expanded Content: Model Details + Active MCP Tools */}
+          {showModelPanel && (
+            <div style={{ padding: "12px 14px", borderTop: "1px solid var(--border-color)" }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>CURRENT LLM MODEL</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <Cpu size={14} /> {config?.llm.model || "Loading..."}
+              </div>
 
-                return (
-                  <div
-                    key={serverKey}
-                    style={{
-                      background: "var(--bg-secondary)",
-                      border: "1px solid var(--border-color)",
-                      borderRadius: 6,
-                      padding: "8px 10px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: 6,
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <Server size={13} color="var(--accent)" />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)" }}>
-                          {serverKey}
-                        </span>
-                      </div>
-                      <span
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6, display: "flex", justifyContent: "space-between" }}>
+                <span>ACTIVE MCP SERVERS</span>
+                <span style={{ color: "var(--accent-emerald)", fontWeight: 600 }}>{config?.tools?.length || 0} Tools</span>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto" }}>
+                {config?.mcpServers &&
+                  Object.entries(config.mcpServers).map(([serverKey, serverDef]: [string, any]) => {
+                    const serverTools = (config.discoveredTools || []).filter(
+                      (t) => t.serverName === serverKey
+                    );
+
+                    return (
+                      <div
+                        key={serverKey}
                         style={{
-                          fontSize: 10,
-                          padding: "1px 5px",
-                          borderRadius: 4,
-                          background: serverDef.enabled ? "rgba(22, 163, 74, 0.15)" : "var(--bg-card)",
-                          color: serverDef.enabled ? "var(--accent-emerald)" : "var(--text-muted)",
-                          fontWeight: 600,
+                          background: "var(--bg-secondary)",
+                          border: "1px solid var(--border-color)",
+                          borderRadius: 6,
+                          padding: "6px 8px",
                         }}
                       >
-                        {serverDef.enabled ? "Active" : "Disabled"}
-                      </span>
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {serverTools.length > 0 ? (
-                        serverTools.map((t) => (
-                          <div
-                            key={t.name}
-                            onClick={() =>
-                              setSelectedToolDetail({
-                                ...t,
-                                serverDef,
-                              })
-                            }
-                            title="Click to view tool definition & input schema"
-                            style={{
-                              fontSize: 11,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 6,
-                              color: "var(--text-main)",
-                              background: "var(--bg-card)",
-                              padding: "3px 6px",
-                              borderRadius: 4,
-                              cursor: "pointer",
-                              border: "1px solid transparent",
-                              transition: "border-color 0.15s",
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--accent)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "transparent")}
-                          >
-                            <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                              <Globe size={11} color="var(--accent-emerald)" />
-                              <code>{t.name}</code>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <Server size={12} color="var(--accent)" />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-main)" }}>
+                              {serverKey}
                             </span>
-                            <Info size={12} color="var(--text-muted)" />
                           </div>
-                        ))
-                      ) : (
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>
-                          Connecting or discovering tools...
+                          <span
+                            style={{
+                              fontSize: 9,
+                              padding: "1px 4px",
+                              borderRadius: 3,
+                              background: serverDef.enabled ? "rgba(22, 163, 74, 0.15)" : "var(--bg-card)",
+                              color: serverDef.enabled ? "var(--accent-emerald)" : "var(--text-muted)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {serverDef.enabled ? "Active" : "Off"}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                          {serverTools.length > 0 ? (
+                            serverTools.map((t) => (
+                              <div
+                                key={t.name}
+                                onClick={() =>
+                                  setSelectedToolDetail({
+                                    ...t,
+                                    serverDef,
+                                  })
+                                }
+                                title="Click to view tool details"
+                                style={{
+                                  fontSize: 10,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  gap: 4,
+                                  color: "var(--text-main)",
+                                  background: "var(--bg-card)",
+                                  padding: "2px 5px",
+                                  borderRadius: 4,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <Globe size={10} color="var(--accent-emerald)" />
+                                  <code>{t.name}</code>
+                                </span>
+                                <Info size={11} color="var(--text-muted)" />
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>
+                              No tools loaded
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -571,7 +613,6 @@ export function App() {
             cursor: "pointer",
             fontSize: 13,
             fontWeight: 500,
-            marginTop: "auto",
           }}
         >
           <Settings size={16} /> Configure LLM & AI Skills

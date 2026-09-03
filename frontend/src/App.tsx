@@ -562,152 +562,204 @@ export function App() {
         >
           <div
             style={{
-              width: 580,
+              width: "min(1160px, 95vw)",
               background: "var(--bg-secondary)",
               border: "1px solid var(--border-color)",
-              borderRadius: 12,
-              padding: 24,
-              maxHeight: "90vh",
+              borderRadius: 14,
+              padding: 28,
+              maxHeight: "92vh",
               overflowY: "auto",
-              boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+              boxShadow: "0 15px 35px rgba(0,0,0,0.15)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 20,
             }}
           >
-            <h3 style={{ fontSize: 18, marginBottom: 16, color: "var(--text-main)" }}>Configuration & AI Skills</h3>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
-                LLM Base URL
-              </label>
-              <input
-                type="text"
-                value={config.llm.baseUrl}
-                onChange={(e) =>
-                  setConfig({ ...config, llm: { ...config.llm, baseUrl: e.target.value } })
-                }
-                style={{
-                  width: "100%",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  padding: 8,
-                  borderRadius: 6,
-                  color: "var(--text-main)",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
-                LLM Model Name
-              </label>
-              <input
-                type="text"
-                value={config.llm.model}
-                onChange={(e) =>
-                  setConfig({ ...config, llm: { ...config.llm, model: e.target.value } })
-                }
-                style={{
-                  width: "100%",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  padding: 8,
-                  borderRadius: 6,
-                  color: "var(--text-main)",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
-                System Prompt
-              </label>
-              <textarea
-                rows={3}
-                value={config.prompts.systemPrompt}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    prompts: { ...config.prompts, systemPrompt: e.target.value },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  padding: 8,
-                  borderRadius: 6,
-                  color: "var(--text-main)",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
-                AI Skills & Protocols Prompt
-              </label>
-              <textarea
-                rows={3}
-                value={config.prompts.skillsPrompt}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    prompts: { ...config.prompts, skillsPrompt: e.target.value },
-                  })
-                }
-                style={{
-                  width: "100%",
-                  background: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  padding: 8,
-                  borderRadius: 6,
-                  color: "var(--text-main)",
-                  fontFamily: "monospace",
-                  fontSize: 12,
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                  Active MCP Servers Registry (Flexible JSON)
-                </label>
-                <span style={{ fontSize: 11, color: "var(--accent)" }}>Hot-reloaded automatically</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: 14 }}>
+              <div>
+                <h3 style={{ fontSize: 19, fontWeight: 700, color: "var(--text-main)" }}>Configuration & AI Skills</h3>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                  Adjust Model parameters, prompt instructions, and hot-reload MCP tools in real-time.
+                </div>
               </div>
-              <textarea
-                rows={6}
-                value={JSON.stringify(config.mcpServers, null, 2)}
-                onChange={(e) => {
-                  try {
-                    const parsed = JSON.parse(e.target.value);
-                    setConfig({ ...config, mcpServers: parsed });
-                  } catch {}
-                }}
-                style={{
-                  width: "100%",
-                  background: "var(--bg-primary)",
-                  border: "1px solid var(--border-color)",
-                  padding: 8,
-                  borderRadius: 6,
-                  color: "var(--accent-emerald)",
-                  fontFamily: "monospace",
-                  fontSize: 12,
-                }}
-              />
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-                💡 You can plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
-              </div>
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
               <button
                 onClick={() => setShowConfig(false)}
                 style={{
-                  padding: "8px 16px",
+                  background: "transparent",
+                  border: "none",
+                  fontSize: 20,
+                  color: "var(--text-muted)",
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 2-Column Split: Left = System Prompts & LLM Settings | Right = MCP Servers JSON */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 24,
+                alignItems: "stretch",
+              }}
+            >
+              {/* Left Column: LLM Settings & System Prompts */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                      LLM Base URL
+                    </label>
+                    <input
+                      type="text"
+                      value={config.llm.baseUrl}
+                      onChange={(e) =>
+                        setConfig({ ...config, llm: { ...config.llm, baseUrl: e.target.value } })
+                      }
+                      style={{
+                        width: "100%",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-color)",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        color: "var(--text-main)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                      LLM Model Name
+                    </label>
+                    <input
+                      type="text"
+                      value={config.llm.model}
+                      onChange={(e) =>
+                        setConfig({ ...config, llm: { ...config.llm, model: e.target.value } })
+                      }
+                      style={{
+                        width: "100%",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-color)",
+                        padding: "8px 12px",
+                        borderRadius: 6,
+                        color: "var(--text-main)",
+                        fontSize: 13,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                    System Prompt
+                  </label>
+                  <textarea
+                    rows={5}
+                    value={config.prompts.systemPrompt}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        prompts: { ...config.prompts, systemPrompt: e.target.value },
+                      })
+                    }
+                    placeholder="Enter the system behavior instructions..."
+                    style={{
+                      width: "100%",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-color)",
+                      padding: 10,
+                      borderRadius: 6,
+                      color: "var(--text-main)",
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                    AI Skills & Protocols Prompt
+                  </label>
+                  <textarea
+                    rows={6}
+                    value={config.prompts.skillsPrompt}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        prompts: { ...config.prompts, skillsPrompt: e.target.value },
+                      })
+                    }
+                    placeholder="Enter skills and reasoning protocols..."
+                    style={{
+                      width: "100%",
+                      background: "var(--bg-card)",
+                      border: "1px solid var(--border-color)",
+                      padding: 10,
+                      borderRadius: 6,
+                      color: "var(--text-main)",
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: 12,
+                      lineHeight: 1.5,
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Active MCP Servers Registry JSON */}
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)" }}>
+                    Active MCP Servers Registry (Flexible JSON)
+                  </label>
+                  <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>Hot-reloaded automatically</span>
+                </div>
+                <textarea
+                  value={JSON.stringify(config.mcpServers, null, 2)}
+                  onChange={(e) => {
+                    try {
+                      const parsed = JSON.parse(e.target.value);
+                      setConfig({ ...config, mcpServers: parsed });
+                    } catch {}
+                  }}
+                  style={{
+                    flex: 1,
+                    minHeight: 330,
+                    width: "100%",
+                    background: "var(--bg-primary)",
+                    border: "1px solid var(--border-color)",
+                    padding: 12,
+                    borderRadius: 6,
+                    color: "var(--accent-emerald)",
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: 12.5,
+                    lineHeight: 1.55,
+                    resize: "vertical",
+                  }}
+                />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, lineHeight: 1.4 }}>
+                  💡 Plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
+              <button
+                onClick={() => setShowConfig(false)}
+                style={{
+                  padding: "9px 18px",
                   borderRadius: 6,
                   background: "var(--bg-card)",
                   border: "1px solid var(--border-color)",
                   color: "var(--text-main)",
                   cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 500,
                 }}
               >
                 Cancel
@@ -715,13 +767,15 @@ export function App() {
               <button
                 onClick={saveConfig}
                 style={{
-                  padding: "8px 16px",
+                  padding: "9px 20px",
                   borderRadius: 6,
-                  background: "var(--accent)",
+                  background: "#1f6feb",
                   border: "none",
                   color: "#fff",
                   cursor: "pointer",
                   fontWeight: 600,
+                  fontSize: 13,
+                  boxShadow: "0 2px 4px rgba(31, 111, 235, 0.25)",
                 }}
               >
                 Save Changes

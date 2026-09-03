@@ -525,16 +525,18 @@ export function App() {
             onClick={handleSend}
             disabled={loading || !inputPrompt.trim()}
             style={{
-              padding: "0 20px",
+              padding: "0 22px",
               borderRadius: 8,
-              background: loading ? "var(--border-color)" : "var(--accent)",
-              color: "#fff",
+              background: loading ? "#94a3b8" : "#1f6feb",
+              color: "#ffffff",
               border: "none",
               cursor: loading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               gap: 8,
               fontWeight: 600,
+              boxShadow: loading ? "none" : "0 2px 4px rgba(31, 111, 235, 0.25)",
+              transition: "background 0.2s, box-shadow 0.2s",
             }}
           >
             <Send size={16} /> Send

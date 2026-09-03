@@ -54,7 +54,7 @@ app.get("/api/config", (req, res) => {
   res.json(safeConfig);
 });
 
-// 2. Update Configuration
+// 2. Update Configuration & Hot-Reload MCP Servers
 app.post("/api/config", async (req, res) => {
   try {
     const updates = req.body;
@@ -67,7 +67,18 @@ app.post("/api/config", async (req, res) => {
     if (updates.maxLoopIterations) {
       config.maxLoopIterations = updates.maxLoopIterations;
     }
-    res.json({ success: true, config });
+    if (updates.mcpServers) {
+      config.mcpServers = updates.mcpServers;
+      // Hot-reload MCP servers
+      await initMCP();
+    }
+    res.json({
+      success: true,
+      config: {
+        ...config,
+        tools: mcpManager.getOpenAITools(),
+      },
+    });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }

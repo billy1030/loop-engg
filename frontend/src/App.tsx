@@ -42,6 +42,7 @@ interface ConfigState {
     systemPrompt: string;
     skillsPrompt: string;
   };
+  mcpServers?: Record<string, any>;
   maxLoopIterations: number;
   tools?: any[];
 }
@@ -631,7 +632,7 @@ export function App() {
                 AI Skills & Protocols Prompt
               </label>
               <textarea
-                rows={4}
+                rows={3}
                 value={config.prompts.skillsPrompt}
                 onChange={(e) =>
                   setConfig({
@@ -646,8 +647,42 @@ export function App() {
                   padding: 8,
                   borderRadius: 6,
                   color: "#fff",
+                  fontFamily: "monospace",
+                  fontSize: 12,
                 }}
               />
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={{ fontSize: 12, color: "#8b949e" }}>
+                  Active MCP Servers Registry (Flexible JSON)
+                </label>
+                <span style={{ fontSize: 11, color: "#58a6ff" }}>Hot-reloaded automatically</span>
+              </div>
+              <textarea
+                rows={6}
+                value={JSON.stringify(config.mcpServers, null, 2)}
+                onChange={(e) => {
+                  try {
+                    const parsed = JSON.parse(e.target.value);
+                    setConfig({ ...config, mcpServers: parsed });
+                  } catch {}
+                }}
+                style={{
+                  width: "100%",
+                  background: "#0d1117",
+                  border: "1px solid #30363d",
+                  padding: 8,
+                  borderRadius: 6,
+                  color: "#3fb950",
+                  fontFamily: "monospace",
+                  fontSize: 12,
+                }}
+              />
+              <div style={{ fontSize: 11, color: "#8b949e", marginTop: 4 }}>
+                💡 You can plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
+              </div>
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>

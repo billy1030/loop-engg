@@ -122,6 +122,14 @@ export class MCPClientManager {
   }
 
   /**
+   * Dynamically reloads and switches MCP servers at runtime
+   */
+  async reloadServers(serversConfig: Record<string, MCPServerDef>): Promise<void> {
+    await this.closeAll();
+    await this.initialize(serversConfig);
+  }
+
+  /**
    * Gracefully close all MCP client connections
    */
   async closeAll(): Promise<void> {

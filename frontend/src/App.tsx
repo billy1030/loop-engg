@@ -86,6 +86,7 @@ export function App() {
   const [savedSessions, setSavedSessions] = useState<any[]>([]);
   const [activeSessionFile, setActiveSessionFile] = useState<string | null>(null);
   const [showModelPanel, setShowModelPanel] = useState<boolean>(false);
+  const [mcpViewMode, setMcpViewMode] = useState<"full" | "minimize" | "hide">("full");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -738,7 +739,99 @@ export function App() {
               </span>
             )}
           </div>
-          <div style={{ fontSize: 13, color: "#8b949e" }}>API Server: http://localhost:7000</div>
+
+          {/* MCP Response View Mode Segmented Switch */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                background: "var(--bg-card)",
+                padding: "3px",
+                borderRadius: 8,
+                border: "1px solid var(--border-color)",
+                gap: 2,
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", padding: "0 6px" }}>
+                MCP Response:
+              </span>
+
+              {/* 1. Hide */}
+              <button
+                type="button"
+                onClick={() => setMcpViewMode("hide")}
+                title="Hide all MCP tool calls completely"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: mcpViewMode === "hide" ? 700 : 500,
+                  background: mcpViewMode === "hide" ? "var(--bg-secondary)" : "transparent",
+                  color: mcpViewMode === "hide" ? "var(--text-main)" : "var(--text-muted)",
+                  boxShadow: mcpViewMode === "hide" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <EyeOff size={12} /> Hide
+              </button>
+
+              {/* 2. Minimize */}
+              <button
+                type="button"
+                onClick={() => setMcpViewMode("minimize")}
+                title="Show only tool summary pill / single line"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: mcpViewMode === "minimize" ? 700 : 500,
+                  background: mcpViewMode === "minimize" ? "var(--bg-secondary)" : "transparent",
+                  color: mcpViewMode === "minimize" ? "var(--accent-amber)" : "var(--text-muted)",
+                  boxShadow: mcpViewMode === "minimize" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <ChevronDown size={12} /> Minimize
+              </button>
+
+              {/* 3. Full */}
+              <button
+                type="button"
+                onClick={() => setMcpViewMode("full")}
+                title="Show full collapsible tool call cards with parameters and raw observations"
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: mcpViewMode === "full" ? 700 : 500,
+                  background: mcpViewMode === "full" ? "var(--bg-secondary)" : "transparent",
+                  color: mcpViewMode === "full" ? "var(--accent)" : "var(--text-muted)",
+                  boxShadow: mcpViewMode === "full" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Eye size={12} /> Full
+              </button>
+            </div>
+
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000</div>
+          </div>
         </header>
 
         {/* Message Thread */}
@@ -767,103 +860,145 @@ export function App() {
                   {m.content}
                 </div>
               ) : (
-                <div style={{ maxWidth: "85%", width: "100%" }}>
-                  {/* Tool Invocations Section */}
-                  {m.toolCalls && m.toolCalls.length > 0 && (
+                <div style={{ maxWidth: "85%", width: "100%" }}>                  {/* Tool Invocations Section governed by mcpViewMode */}
+                  {m.toolCalls && m.toolCalls.length > 0 && mcpViewMode !== "hide" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                      {m.toolCalls.map((t) => {
-                        const isExpanded = !!expandedTools[t.id];
-                        return (
-                          <div
-                            key={t.id}
-                            style={{
-                              background: "var(--bg-card)",
-                              border: "1px solid var(--border-color)",
-                              borderRadius: 8,
-                              overflow: "hidden",
-                            }}
-                          >
+                      {/* If Minimize mode: show a compact summary bar */}
+                      {mcpViewMode === "minimize" ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            padding: "6px 12px",
+                            borderRadius: 20,
+                            background: "var(--bg-card)",
+                            border: "1px solid var(--border-color)",
+                            fontSize: 11,
+                            color: "var(--text-muted)",
+                            width: "fit-content",
+                          }}
+                        >
+                          <Activity size={12} color="var(--accent-amber)" />
+                          <span style={{ fontWeight: 600, color: "var(--text-main)" }}>
+                            {m.toolCalls.length} MCP Tool Call(s) Executed
+                          </span>
+                          <span style={{ color: "var(--text-muted)" }}>•</span>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                            {m.toolCalls.map((t, idx) => (
+                              <span
+                                key={idx}
+                                style={{
+                                  padding: "1px 6px",
+                                  borderRadius: 4,
+                                  background: "var(--bg-secondary)",
+                                  border: "1px solid var(--border-color)",
+                                  fontSize: 10,
+                                  fontFamily: "monospace",
+                                  color: "var(--accent-amber)",
+                                }}
+                              >
+                                {t.toolName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        /* If Full mode: render interactive collapsible tool cards */
+                        m.toolCalls.map((t) => {
+                          const isExpanded = !!expandedTools[t.id];
+                          return (
                             <div
-                              onClick={() => toggleTool(t.id)}
+                              key={t.id}
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "10px 14px",
-                                cursor: "pointer",
-                                background: "var(--bg-secondary)",
-                                borderBottom: isExpanded ? "1px solid var(--border-color)" : "none",
+                                background: "var(--bg-card)",
+                                border: "1px solid var(--border-color)",
+                                borderRadius: 8,
+                                overflow: "hidden",
                               }}
                             >
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <Search size={15} color="var(--accent-amber)" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-amber)" }}>
-                                  Tool Call: {t.toolName}
-                                </span>
-                                {t.serverName && (
-                                  <span
+                              <div
+                                onClick={() => toggleTool(t.id)}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "space-between",
+                                  padding: "10px 14px",
+                                  cursor: "pointer",
+                                  background: "var(--bg-secondary)",
+                                  borderBottom: isExpanded ? "1px solid var(--border-color)" : "none",
+                                }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <Search size={15} color="var(--accent-amber)" />
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-amber)" }}>
+                                    Tool Call: {t.toolName}
+                                  </span>
+                                  {t.serverName && (
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 600,
+                                        padding: "1px 6px",
+                                        borderRadius: 4,
+                                        background: "rgba(2, 132, 199, 0.12)",
+                                        color: "var(--accent)",
+                                        border: "1px solid rgba(2, 132, 199, 0.25)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                      }}
+                                    >
+                                      <Server size={10} /> {t.serverName}
+                                    </span>
+                                  )}
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                    args: {JSON.stringify(t.args)}
+                                  </span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                  {t.result ? (
+                                    <span style={{ fontSize: 11, color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: 4 }}>
+                                      <CheckCircle2 size={13} /> Completed
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: 11, color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
+                                      <RefreshCw size={12} className="spin" /> Executing...
+                                    </span>
+                                  )}
+                                  {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                </div>
+                              </div>
+
+                              {isExpanded && (
+                                <div style={{ padding: "12px 14px", background: "var(--bg-card)" }}>
+                                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>PARAMETERS:</div>
+                                  <pre style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10, overflowX: "auto", background: "var(--bg-primary)", padding: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}>
+                                    {JSON.stringify(t.args, null, 2)}
+                                  </pre>
+                                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>OBSERVATION (MCP RESPONSE):</div>
+                                  <pre
                                     style={{
-                                      fontSize: 10,
-                                      fontWeight: 600,
-                                      padding: "1px 6px",
-                                      borderRadius: 4,
-                                      background: "rgba(2, 132, 199, 0.12)",
-                                      color: "var(--accent)",
-                                      border: "1px solid rgba(2, 132, 199, 0.25)",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 4,
+                                      fontSize: 12,
+                                      color: "var(--text-main)",
+                                      maxHeight: 200,
+                                      overflowY: "auto",
+                                      whiteSpace: "pre-wrap",
+                                      wordBreak: "break-word",
+                                      background: "var(--bg-primary)",
+                                      padding: 8,
+                                      borderRadius: 6,
+                                      border: "1px solid var(--border-color)",
                                     }}
                                   >
-                                    <Server size={10} /> {t.serverName}
-                                  </span>
-                                )}
-                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                  args: {JSON.stringify(t.args)}
-                                </span>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                {t.result ? (
-                                  <span style={{ fontSize: 11, color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: 4 }}>
-                                    <CheckCircle2 size={13} /> Completed
-                                  </span>
-                                ) : (
-                                  <span style={{ fontSize: 11, color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
-                                    <RefreshCw size={12} className="spin" /> Executing...
-                                  </span>
-                                )}
-                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                              </div>
+                                    {t.result || "Awaiting MCP response..."}
+                                  </pre>
+                                </div>
+                              )}
                             </div>
-
-                            {isExpanded && (
-                              <div style={{ padding: "12px 14px", background: "var(--bg-card)" }}>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>PARAMETERS:</div>
-                                <pre style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10, overflowX: "auto", background: "var(--bg-primary)", padding: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}>
-                                  {JSON.stringify(t.args, null, 2)}
-                                </pre>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>OBSERVATION (MCP RESPONSE):</div>
-                                <pre
-                                  style={{
-                                    fontSize: 12,
-                                    color: "var(--text-main)",
-                                    maxHeight: 200,
-                                    overflowY: "auto",
-                                    whiteSpace: "pre-wrap",
-                                    wordBreak: "break-word",
-                                    background: "var(--bg-primary)",
-                                    padding: 8,
-                                    borderRadius: 6,
-                                    border: "1px solid var(--border-color)",
-                                  }}
-                                >
-                                  {t.result || "Awaiting MCP response..."}
-                                </pre>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </div>
                   )}
 

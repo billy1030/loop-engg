@@ -228,7 +228,7 @@ app.use((req, res) => {
   } else {
     res.send(`
       <div style="font-family: sans-serif; padding: 40px; text-align: center;">
-        <h2>Loop Engineering Chatbot API Server is running on port ${PORT}</h2>
+        <h2>Mini Chat Bot API Server is running on port ${PORT}</h2>
         <p>Frontend is currently building or running via Vite.</p>
         <p>Try querying <code>/api/config</code> or <code>/api/tools</code>.</p>
       </div>

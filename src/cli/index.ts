@@ -8,7 +8,7 @@ import { saveConversationLog } from "../logger/conversation-logger.js";
 
 async function main() {
   console.log(chalk.bold.cyan("\n=============================================="));
-  console.log(chalk.bold.cyan("   Loop Engineering Chatbot with MCP Protocol"));
+  console.log(chalk.bold.cyan("      Mini Chat Bot with MCP Protocol"));
   console.log(chalk.bold.cyan("==============================================\n"));
 
   const config = loadConfig();

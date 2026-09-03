@@ -10,7 +10,7 @@ export const LLMConfigSchema = z.object({
 
 export const PromptsConfigSchema = z.object({
   systemPrompt: z.string().default(
-    "You are an expert Loop Engineering Assistant. You have access to external tools via the Model Context Protocol (MCP). " +
+    "You are an expert Mini Chat Bot Assistant. You have access to external tools via the Model Context Protocol (MCP). " +
     "When a user asks a question requiring external or up-to-date data, invoke the appropriate tool, inspect the result, " +
     "and reason through the next steps until you have a comprehensive answer."
   ),

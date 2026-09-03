@@ -68,7 +68,7 @@ export function App() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hello! I am your Loop Engineering Chatbot. I can run multi-step reasoning loops and fetch real-time data from the web using MCP tools. What would you like to research or build today?",
+        "Hello! I am your Mini Chat Bot. I can run multi-step reasoning loops and fetch real-time data from the web using MCP tools. What would you like to research or build today?",
     },
   ]);
   const [inputPrompt, setInputPrompt] = useState("");
@@ -109,7 +109,7 @@ export function App() {
         id: "welcome",
         role: "assistant",
         content:
-          "Hello! I am your Loop Engineering Chatbot. I can run multi-step reasoning loops and fetch real-time data from the web using MCP tools. What would you like to research or build today?",
+          "Hello! I am your Mini Chat Bot. I can run multi-step reasoning loops and fetch real-time data from the web using MCP tools. What would you like to research or build today?",
       },
     ]);
     setActiveSessionFile(null);
@@ -333,7 +333,7 @@ export function App() {
             <Cpu size={20} color="#fff" />
           </div>
           <div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Loop Engg</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Mini Chat Bot</h2>
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000 · MCP Protocol</div>
           </div>
         </div>

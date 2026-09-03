@@ -234,13 +234,13 @@ export function App() {
   };
 
   return (
-    <div style={{ display: "flex", width: "100vw", height: "100vh", background: "#0d1117" }}>
+    <div style={{ display: "flex", width: "100vw", height: "100vh", background: "var(--bg-primary)" }}>
       {/* Sidebar Navigation */}
       <div
         style={{
           width: 320,
-          background: "#161b22",
-          borderRight: "1px solid #30363d",
+          background: "var(--bg-secondary)",
+          borderRight: "1px solid var(--border-color)",
           display: "flex",
           flexDirection: "column",
           padding: "20px 16px",
@@ -252,7 +252,7 @@ export function App() {
               width: 36,
               height: 36,
               borderRadius: 8,
-              background: "linear-gradient(135deg, #1f6feb, #8957e5)",
+              background: "linear-gradient(135deg, var(--accent), var(--accent-purple))",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -261,26 +261,26 @@ export function App() {
             <Cpu size={20} color="#fff" />
           </div>
           <div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "#f0f6fc" }}>Loop Engg</h2>
-            <div style={{ fontSize: 12, color: "#8b949e" }}>Port 7000 · MCP Protocol</div>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-main)" }}>Loop Engg</h2>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000 · MCP Protocol</div>
           </div>
         </div>
 
         {/* Status Indicators */}
         <div
           style={{
-            background: "#21262d",
+            background: "var(--bg-card)",
             borderRadius: 8,
             padding: 14,
             marginBottom: 20,
-            border: "1px solid #30363d",
+            border: "1px solid var(--border-color)",
           }}
         >
-          <div style={{ fontSize: 12, color: "#8b949e", marginBottom: 6 }}>ACTIVE MODEL</div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: "#58a6ff", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 6 }}>ACTIVE MODEL</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--accent)", display: "flex", alignItems: "center", gap: 6 }}>
             <Sparkles size={16} /> {config?.llm.model || "Loading..."}
           </div>
-          <div style={{ fontSize: 12, color: "#8b949e", marginTop: 10, marginBottom: 6 }}>MCP TOOLS DISCOVERED</div>
+          <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 10, marginBottom: 6 }}>MCP TOOLS DISCOVERED</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {config?.tools?.map((tool: any) => (
               <div
@@ -290,8 +290,8 @@ export function App() {
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  color: "#3fb950",
-                  background: "rgba(63, 185, 80, 0.1)",
+                  color: "var(--accent-emerald)",
+                  background: "rgba(22, 163, 74, 0.1)",
                   padding: "4px 8px",
                   borderRadius: 4,
                 }}
@@ -299,7 +299,7 @@ export function App() {
                 <Globe size={13} />
                 <code>{tool.function.name}</code>
               </div>
-            )) || <span style={{ fontSize: 12, color: "#8b949e" }}>Loading tools...</span>}
+            )) || <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Loading tools...</span>}
           </div>
         </div>
 
@@ -311,9 +311,9 @@ export function App() {
             gap: 8,
             padding: "10px 14px",
             borderRadius: 6,
-            background: "#21262d",
-            color: "#f0f6fc",
-            border: "1px solid #30363d",
+            background: "var(--bg-card)",
+            color: "var(--text-main)",
+            border: "1px solid var(--border-color)",
             cursor: "pointer",
             fontSize: 13,
             fontWeight: 500,
@@ -330,12 +330,12 @@ export function App() {
         <header
           style={{
             height: 60,
-            borderBottom: "1px solid #30363d",
+            borderBottom: "1px solid var(--border-color)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             padding: "0 24px",
-            background: "#161b22",
+            background: "var(--bg-secondary)",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -395,8 +395,8 @@ export function App() {
                           <div
                             key={t.id}
                             style={{
-                              background: "#161b22",
-                              border: "1px solid #30363d",
+                              background: "var(--bg-card)",
+                              border: "1px solid var(--border-color)",
                               borderRadius: 8,
                               overflow: "hidden",
                             }}
@@ -409,25 +409,26 @@ export function App() {
                                 justifyContent: "space-between",
                                 padding: "10px 14px",
                                 cursor: "pointer",
-                                background: "#21262d",
+                                background: "var(--bg-secondary)",
+                                borderBottom: isExpanded ? "1px solid var(--border-color)" : "none",
                               }}
                             >
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <Search size={15} color="#d29922" />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: "#d29922" }}>
+                                <Search size={15} color="var(--accent-amber)" />
+                                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-amber)" }}>
                                   Tool Call: {t.toolName}
                                 </span>
-                                <span style={{ fontSize: 11, color: "#8b949e" }}>
+                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                                   args: {JSON.stringify(t.args)}
                                 </span>
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 {t.result ? (
-                                  <span style={{ fontSize: 11, color: "#3fb950", display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span style={{ fontSize: 11, color: "var(--accent-emerald)", display: "flex", alignItems: "center", gap: 4 }}>
                                     <CheckCircle2 size={13} /> Completed
                                   </span>
                                 ) : (
-                                  <span style={{ fontSize: 11, color: "#58a6ff", display: "flex", alignItems: "center", gap: 4 }}>
+                                  <span style={{ fontSize: 11, color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
                                     <RefreshCw size={12} className="spin" /> Executing...
                                   </span>
                                 )}
@@ -436,20 +437,24 @@ export function App() {
                             </div>
 
                             {isExpanded && (
-                              <div style={{ padding: "12px 14px", background: "#0d1117", borderTop: "1px solid #30363d" }}>
-                                <div style={{ fontSize: 11, color: "#8b949e", marginBottom: 4 }}>PARAMETERS:</div>
-                                <pre style={{ fontSize: 12, color: "#58a6ff", marginBottom: 10, overflowX: "auto" }}>
+                              <div style={{ padding: "12px 14px", background: "var(--bg-card)" }}>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>PARAMETERS:</div>
+                                <pre style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10, overflowX: "auto", background: "var(--bg-primary)", padding: 8, borderRadius: 6, border: "1px solid var(--border-color)" }}>
                                   {JSON.stringify(t.args, null, 2)}
                                 </pre>
-                                <div style={{ fontSize: 11, color: "#8b949e", marginBottom: 4 }}>OBSERVATION (MCP RESPONSE):</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>OBSERVATION (MCP RESPONSE):</div>
                                 <pre
                                   style={{
                                     fontSize: 12,
-                                    color: "#f0f6fc",
+                                    color: "var(--text-main)",
                                     maxHeight: 200,
                                     overflowY: "auto",
                                     whiteSpace: "pre-wrap",
                                     wordBreak: "break-word",
+                                    background: "var(--bg-primary)",
+                                    padding: 8,
+                                    borderRadius: 6,
+                                    border: "1px solid var(--border-color)",
                                   }}
                                 >
                                   {t.result || "Awaiting MCP response..."}
@@ -465,17 +470,18 @@ export function App() {
                   {/* Main Assistant Content */}
                   <div
                     style={{
-                      background: "#161b22",
-                      border: "1px solid #30363d",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border-color)",
                       borderRadius: "16px 16px 16px 2px",
                       padding: "16px 20px",
-                      color: "#f0f6fc",
+                      color: "var(--text-main)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
                     {m.content ? (
                       <MarkdownRenderer content={m.content} />
                     ) : m.isStreaming ? (
-                      <span style={{ color: "#8b949e", fontStyle: "italic" }}>
+                      <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>
                         Reasoning through tool outputs...
                       </span>
                     ) : null}
@@ -491,8 +497,8 @@ export function App() {
         <div
           style={{
             padding: "16px 30px",
-            borderTop: "1px solid #30363d",
-            background: "#161b22",
+            borderTop: "1px solid var(--border-color)",
+            background: "var(--bg-secondary)",
             display: "flex",
             gap: 12,
           }}
@@ -506,11 +512,11 @@ export function App() {
             disabled={loading}
             style={{
               flex: 1,
-              background: "#0d1117",
-              border: "1px solid #30363d",
+              background: "var(--bg-card)",
+              border: "1px solid var(--border-color)",
               borderRadius: 8,
               padding: "12px 16px",
-              color: "#f0f6fc",
+              color: "var(--text-main)",
               fontSize: 14,
               outline: "none",
             }}
@@ -521,7 +527,7 @@ export function App() {
             style={{
               padding: "0 20px",
               borderRadius: 8,
-              background: loading ? "#21262d" : "#1f6feb",
+              background: loading ? "var(--border-color)" : "var(--accent)",
               color: "#fff",
               border: "none",
               cursor: loading ? "not-allowed" : "pointer",
@@ -545,7 +551,7 @@ export function App() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(0,0,0,0.7)",
+            background: "rgba(0,0,0,0.5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -555,18 +561,19 @@ export function App() {
           <div
             style={{
               width: 580,
-              background: "#161b22",
-              border: "1px solid #30363d",
+              background: "var(--bg-secondary)",
+              border: "1px solid var(--border-color)",
               borderRadius: 12,
               padding: 24,
               maxHeight: "90vh",
               overflowY: "auto",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
             }}
           >
-            <h3 style={{ fontSize: 18, marginBottom: 16 }}>Configuration & AI Skills</h3>
+            <h3 style={{ fontSize: 18, marginBottom: 16, color: "var(--text-main)" }}>Configuration & AI Skills</h3>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#8b949e", display: "block", marginBottom: 6 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                 LLM Base URL
               </label>
               <input
@@ -577,17 +584,17 @@ export function App() {
                 }
                 style={{
                   width: "100%",
-                  background: "#0d1117",
-                  border: "1px solid #30363d",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
                   padding: 8,
                   borderRadius: 6,
-                  color: "#fff",
+                  color: "var(--text-main)",
                 }}
               />
             </div>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#8b949e", display: "block", marginBottom: 6 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                 LLM Model Name
               </label>
               <input
@@ -598,17 +605,17 @@ export function App() {
                 }
                 style={{
                   width: "100%",
-                  background: "#0d1117",
-                  border: "1px solid #30363d",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
                   padding: 8,
                   borderRadius: 6,
-                  color: "#fff",
+                  color: "var(--text-main)",
                 }}
               />
             </div>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 12, color: "#8b949e", display: "block", marginBottom: 6 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                 System Prompt
               </label>
               <textarea
@@ -622,17 +629,17 @@ export function App() {
                 }
                 style={{
                   width: "100%",
-                  background: "#0d1117",
-                  border: "1px solid #30363d",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
                   padding: 8,
                   borderRadius: 6,
-                  color: "#fff",
+                  color: "var(--text-main)",
                 }}
               />
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 12, color: "#8b949e", display: "block", marginBottom: 6 }}>
+              <label style={{ fontSize: 12, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
                 AI Skills & Protocols Prompt
               </label>
               <textarea
@@ -646,11 +653,11 @@ export function App() {
                 }
                 style={{
                   width: "100%",
-                  background: "#0d1117",
-                  border: "1px solid #30363d",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
                   padding: 8,
                   borderRadius: 6,
-                  color: "#fff",
+                  color: "var(--text-main)",
                   fontFamily: "monospace",
                   fontSize: 12,
                 }}
@@ -659,10 +666,10 @@ export function App() {
 
             <div style={{ marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                <label style={{ fontSize: 12, color: "#8b949e" }}>
+                <label style={{ fontSize: 12, color: "var(--text-muted)" }}>
                   Active MCP Servers Registry (Flexible JSON)
                 </label>
-                <span style={{ fontSize: 11, color: "#58a6ff" }}>Hot-reloaded automatically</span>
+                <span style={{ fontSize: 11, color: "var(--accent)" }}>Hot-reloaded automatically</span>
               </div>
               <textarea
                 rows={6}
@@ -675,16 +682,16 @@ export function App() {
                 }}
                 style={{
                   width: "100%",
-                  background: "#0d1117",
-                  border: "1px solid #30363d",
+                  background: "var(--bg-primary)",
+                  border: "1px solid var(--border-color)",
                   padding: 8,
                   borderRadius: 6,
-                  color: "#3fb950",
+                  color: "var(--accent-emerald)",
                   fontFamily: "monospace",
                   fontSize: 12,
                 }}
               />
-              <div style={{ fontSize: 11, color: "#8b949e", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
                 💡 You can plug in any MCP server here (e.g. SQLite, GitHub, Brave Search, Filesystem, or Custom Python/Node scripts).
               </div>
             </div>
@@ -695,9 +702,9 @@ export function App() {
                 style={{
                   padding: "8px 16px",
                   borderRadius: 6,
-                  background: "#21262d",
-                  border: "1px solid #30363d",
-                  color: "#f0f6fc",
+                  background: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-main)",
                   cursor: "pointer",
                 }}
               >
@@ -708,7 +715,7 @@ export function App() {
                 style={{
                   padding: "8px 16px",
                   borderRadius: 6,
-                  background: "#1f6feb",
+                  background: "var(--accent)",
                   border: "none",
                   color: "#fff",
                   cursor: "pointer",

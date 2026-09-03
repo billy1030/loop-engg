@@ -1,8 +1,8 @@
 {
   "llm": {
-    "baseUrl": "https://api.openai.com/v1",
-    "apiKey": "${OPENAI_API_KEY}",
-    "model": "gpt-4o",
+    "baseUrl": "https://api.minimaxi.com/v1",
+    "apiKey": "${LLM_API_KEY}",
+    "model": "MiniMax-M3",
     "temperature": 0.7,
     "maxTokens": 4096
   },

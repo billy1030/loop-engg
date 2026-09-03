@@ -13,6 +13,7 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [05. Agentic Looping & Self-Correction Case Study](./discussion.md) | Real-world autopsy of tool failure (`fetch failed`), autonomous query reformulating, and multi-MCP resilience in ADCS HSM migration. |
 | [06. Technology Stack Specification](./06-technology-stack.md) | Comprehensive stack breakdown: Node.js 26 ESM, Express 5, React 19, Vite 8, MCP SDK, MiniMax-M3 integration, and SSE streaming. |
 | [07. Conversation Memory & State Continuity](./07-conversation-memory-and-state.md) | In-Memory vs. File-Based architectural trade-offs, multi-turn state continuity, hybrid design, sliding window context governance. |
+| [08. UI/UX & Session Management Specification](./08-ui-ux-and-session-management.md) | Web UI design tokens, collapsible bottom Active Model accordion, session re-hydration sequence, and token badges. |
 
 ---
 

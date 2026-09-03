@@ -16,6 +16,7 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [08. UI/UX & Session Management Specification](./08-ui-ux-and-session-management.md) | Web UI design tokens, collapsible bottom Active Model accordion, session re-hydration sequence, and token badges. |
 | [09. Multi-MCP Extensibility & Skills Prompt Patterns](./09-multi-mcp-and-skills-prompt-patterns.md) | Architectural rationale behind Skills & Protocols, multi-MCP categories (Filesystem, DB, GitHub, CLI), declarative configs, and safety guardrails. |
 | [10. BigFix Enterprise Streamable-HTTP MCP Integration](./10-bigfix-enterprise-mcp-integration.md) | Enterprise BigFix remote HTTPS connection, SSE streamable-http protocol, Mcp-Session-Id management, 14 BigFix tools, and test prompts. |
+| [11. Standalone HTML Export Engine Specification](./11-html-export-engine.md) | Self-contained offline HTML export engine inspired by `sls`, client-side Blob download, theme toggle, Print/PDF, and dynamic Mermaid SVG rendering. |
 
 ---
 

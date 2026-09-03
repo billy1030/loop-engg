@@ -20,8 +20,10 @@ import {
   MessageSquare,
   Loader2,
   Trash2,
+  Download,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
+import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
 
 interface ToolCallLog {
   id: string;
@@ -830,6 +832,48 @@ export function App() {
               </button>
             </div>
 
+            {/* Export Entire Conversation as HTML */}
+            <button
+              onClick={() => {
+                const combinedMarkdown = messages
+                  .map((m) => `### ${m.role === "user" ? "👤 User Query" : "🤖 Assistant Response"}\n\n${m.content}`)
+                  .join("\n\n---\n\n");
+                const html = generateStandaloneExportHtml(
+                  combinedMarkdown,
+                  activeSessionFile ? activeSessionFile.replace(".md", "") : "Chat Session Export"
+                );
+                downloadHtmlFile(
+                  html,
+                  activeSessionFile ? `${activeSessionFile.replace(".md", "")}.html` : `chat-session-${Date.now()}.html`
+                );
+              }}
+              title="Export complete chat session as standalone offline HTML report"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "6px 12px",
+                borderRadius: 8,
+                background: "var(--bg-card)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-main)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--accent)";
+                e.currentTarget.style.color = "var(--accent)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-color)";
+                e.currentTarget.style.color = "var(--text-main)";
+              }}
+            >
+              <Download size={13} /> Export HTML
+            </button>
+
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Port 7000</div>
           </div>
         </header>
@@ -1046,6 +1090,40 @@ export function App() {
                               Resolved in {m.iterations} iteration(s)
                             </span>
                           )}
+
+                          <button
+                            onClick={() => {
+                              const title = m.content.slice(0, 40).replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, "-") || "Answer";
+                              const html = generateStandaloneExportHtml(m.content, title);
+                              downloadHtmlFile(html, `${title}.html`);
+                            }}
+                            title="Export this specific answer as standalone HTML"
+                            style={{
+                              marginLeft: "auto",
+                              background: "transparent",
+                              border: "1px solid var(--border-color)",
+                              borderRadius: 4,
+                              padding: "2px 8px",
+                              fontSize: 10,
+                              fontWeight: 600,
+                              color: "var(--text-muted)",
+                              cursor: "pointer",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 4,
+                              transition: "all 0.15s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = "var(--accent)";
+                              e.currentTarget.style.color = "var(--accent)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = "var(--border-color)";
+                              e.currentTarget.style.color = "var(--text-muted)";
+                            }}
+                          >
+                            <Download size={11} /> Export HTML
+                          </button>
                         </div>
                       </>
                     ) : m.isStreaming ? (

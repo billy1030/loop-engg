@@ -10,7 +10,9 @@ import {
   Sparkles,
   CheckCircle2,
   RefreshCw,
-  Search
+  Search,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 
@@ -26,9 +28,9 @@ interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  iterations?: number;
   toolCalls?: ToolCallLog[];
   isStreaming?: boolean;
+  iterations?: number;
 }
 
 interface ConfigState {
@@ -43,7 +45,7 @@ interface ConfigState {
     systemPrompt: string;
     skillsPrompt: string;
   };
-  mcpServers?: Record<string, any>;
+  mcpServers: Record<string, any>;
   maxLoopIterations: number;
   tools?: any[];
 }
@@ -61,6 +63,7 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<number | null>(null);
   const [showConfig, setShowConfig] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
 
@@ -650,6 +653,53 @@ export function App() {
                         fontSize: 13,
                       }}
                     />
+                  </div>
+                </div>
+
+                {/* API Key Input with Eye Toggle */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 6 }}>
+                    API Key (MiniMax / LLM Secret)
+                  </label>
+                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      value={config.llm.apiKey || ""}
+                      onChange={(e) =>
+                        setConfig({ ...config, llm: { ...config.llm, apiKey: e.target.value } })
+                      }
+                      placeholder="sk-cp-..."
+                      style={{
+                        width: "100%",
+                        background: "var(--bg-card)",
+                        border: "1px solid var(--border-color)",
+                        padding: "8px 40px 8px 12px",
+                        borderRadius: 6,
+                        color: "var(--text-main)",
+                        fontSize: 13,
+                        fontFamily: showApiKey ? "ui-monospace, monospace" : "inherit",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey((prev) => !prev)}
+                      title={showApiKey ? "Hide API Key" : "Show API Key"}
+                      style={{
+                        position: "absolute",
+                        right: 8,
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        color: "var(--text-muted)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 4,
+                        borderRadius: 4,
+                      }}
+                    >
+                      {showApiKey ? <EyeOff size={16} color="var(--accent)" /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 

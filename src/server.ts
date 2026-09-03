@@ -45,10 +45,6 @@ async function initMCP() {
 app.get("/api/config", (req, res) => {
   const safeConfig = {
     ...config,
-    llm: {
-      ...config.llm,
-      apiKey: config.llm.apiKey ? `${config.llm.apiKey.slice(0, 8)}...***` : "",
-    },
     tools: mcpManager.getOpenAITools(),
   };
   res.json(safeConfig);
@@ -59,7 +55,16 @@ app.post("/api/config", async (req, res) => {
   try {
     const updates = req.body;
     if (updates.llm) {
-      config.llm = { ...config.llm, ...updates.llm };
+      // Don't overwrite with masked key
+      const newApiKey = updates.llm.apiKey?.includes("...***")
+        ? config.llm.apiKey
+        : updates.llm.apiKey;
+
+      config.llm = {
+        ...config.llm,
+        ...updates.llm,
+        apiKey: newApiKey || config.llm.apiKey,
+      };
     }
     if (updates.prompts) {
       config.prompts = { ...config.prompts, ...updates.prompts };

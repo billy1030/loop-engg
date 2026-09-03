@@ -16,6 +16,12 @@
       "args": ["dist/mcp/servers/web-search-server.js"],
       "enabled": true,
       "description": "Provides internet web search and page content fetching capabilities"
+    },
+    "minimax-multimodal": {
+      "command": "node",
+      "args": ["dist/mcp/servers/minimax-server.js"],
+      "enabled": true,
+      "description": "Provides MiniMax official web search, image generation, speech synthesis, and music creation via mmx-cli"
     }
   },
   "maxLoopIterations": 10

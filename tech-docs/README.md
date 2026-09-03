@@ -11,6 +11,7 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [03. Technical Challenges & Solutions](./03-technical-challenges-and-solutions.md) | Engineering post-mortems: infinite tool loops, observation bloat, Windows stdio IPC, real-time UI streaming. |
 | [04. AI Skills & Prompts Setup](./04-ai-skills-and-prompts-setup.md) | How system prompts and skills instructions are ingested, dynamic behavior configuration, MiniMax multimodal toolkit mapping. |
 | [05. Agentic Looping & Self-Correction Case Study](./discussion.md) | Real-world autopsy of tool failure (`fetch failed`), autonomous query reformulating, and multi-MCP resilience in ADCS HSM migration. |
+| [06. Technology Stack Specification](./06-technology-stack.md) | Comprehensive stack breakdown: Node.js 26 ESM, Express 5, React 19, Vite 8, MCP SDK, MiniMax-M3 integration, and SSE streaming. |
 
 ---
 

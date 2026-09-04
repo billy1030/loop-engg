@@ -1,3 +1,4 @@
+import "./polyfills.js";
 import express from "express";
 import cors from "cors";
 import path from "node:path";
@@ -86,7 +87,7 @@ async function initMCP() {
       const fullTsPath = path.resolve(process.cwd(), tsPath);
 
       if (fs.existsSync(jsPath)) {
-        // Built JS exists (standalone deployment mode)
+        // Built JS exists
         servers[key] = {
           ...def,
           command: "node",
@@ -100,7 +101,12 @@ async function initMCP() {
           args: ["tsx", tsPath],
         };
       } else {
-        servers[key] = { ...def };
+        // Standalone mode without dist/ folder: omit command so it activates in-process tools directly
+        servers[key] = {
+          ...def,
+          command: "",
+          args: [],
+        };
       }
     } else {
       servers[key] = { ...def };

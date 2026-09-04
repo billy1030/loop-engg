@@ -71,13 +71,12 @@ pub fn run() {
           }
         }
 
-        // Helper to run silent powershell command
-        let silent_cmd = |cmd: &str| {
-          let mut c = Command::new("powershell");
-          c.args(&["-NoProfile", "-Command", cmd]);
-          #[cfg(target_os = "windows")]
-          c.creation_flags(CREATE_NO_WINDOW);
-          c
+        let is_port_listening = |port: u16| -> bool {
+          std::net::TcpStream::connect_timeout(
+            &std::net::SocketAddr::from(([127, 0, 0, 1], port)),
+            std::time::Duration::from_millis(150),
+          )
+          .is_ok()
         };
 
         let make_spawn_cmd = |port: u16| {
@@ -90,15 +89,10 @@ pub fn run() {
         };
 
         // 4. Check if port 7009 is already busy
-        let is_7009_busy = silent_cmd(
-          "$c = Get-NetTCPConnection -LocalPort 7009 -State Listen -ErrorAction SilentlyContinue; if ($c) { exit 1 } else { exit 0 }",
-        )
-        .status()
-        .map(|s| !s.success())
-        .unwrap_or(false);
+        let is_7009_busy = is_port_listening(7009);
 
         let target_port = if !is_7009_busy {
-          // Port 7009 is free, spawn backend silently on 7009
+          // Port 7009 is free, spawn backend on 7009
           let mut c = make_spawn_cmd(7009);
           if let Ok(child) = c.spawn() {
             let mut lock = child_holder.lock().unwrap();
@@ -106,41 +100,25 @@ pub fn run() {
           }
           7009
         } else {
-          // Check if 7009 is our own server
-          let is_our_server = silent_cmd(
-            "$r = Invoke-RestMethod -Uri 'http://localhost:7009/api/auth/me' -TimeoutSec 2 -ErrorAction SilentlyContinue; if ($r) { exit 0 } else { exit 1 }",
-          )
-          .status()
-          .map(|s| s.success())
-          .unwrap_or(false);
-
-          if is_our_server {
-            7009
-          } else {
-            // Port 7009 is occupied by another application -> Use Port 8009 silently!
-            let mut c = make_spawn_cmd(8009);
-            if let Ok(child) = c.spawn() {
-              let mut lock = child_holder.lock().unwrap();
-              *lock = Some(child);
-            }
-            8009
+          // Port 7009 is already occupied, use port 8009 for backend
+          let mut c = make_spawn_cmd(8009);
+          if let Ok(child) = c.spawn() {
+            let mut lock = child_holder.lock().unwrap();
+            *lock = Some(child);
           }
+          8009
         };
 
-        // 5. Wait for target port to be listening
-        for _ in 0..25 {
-          let ready = silent_cmd(
-            &format!("$c = Get-NetTCPConnection -LocalPort {} -State Listen -ErrorAction SilentlyContinue; if ($c) {{{{ exit 0 }}}} else {{{{ exit 1 }}}}", target_port),
-          )
-          .status()
-          .map(|s| s.success())
-          .unwrap_or(false);
-
-          if ready {
+        // 5. Wait for target port to be listening (native fast TCP poll)
+        for _ in 0..50 {
+          if is_port_listening(target_port) {
             break;
           }
-          std::thread::sleep(std::time::Duration::from_millis(400));
+          std::thread::sleep(std::time::Duration::from_millis(200));
         }
+
+        // Small grace period for express route setup
+        std::thread::sleep(std::time::Duration::from_millis(300));
 
         // 6. Navigate the native window directly to the active port
         if let Some(window) = app_handle.get_webview_window("main") {

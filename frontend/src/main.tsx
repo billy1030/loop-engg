@@ -6,6 +6,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext.tsx'
 import { LoginPage } from './pages/LoginPage.tsx'
 import { Loader2 } from 'lucide-react'
 
+// Initialize font attribute immediately on script load
+const savedFont = localStorage.getItem("font_preference") || "roboto";
+document.documentElement.setAttribute("data-font", savedFont);
+
 function RootApp() {
   const { currentUser, isLoading } = useAuth();
 

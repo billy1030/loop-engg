@@ -8,7 +8,7 @@ set -e
 # Change to script directory
 cd "$(cd "$(dirname "$0")" && pwd)"
 
-PORT="${PORT:-7000}"
+PORT="${PORT:-7002}"
 
 echo "==================================================="
 echo "          Mini Chat Bot Launcher"
@@ -31,17 +31,6 @@ if [ ! -f "frontend/dist/index.html" ]; then
     fi
     npm run build
     cd ..
-fi
-
-# 3. Check port 7000 macOS AirPlay Receiver notice
-if [ "$PORT" = "7000" ]; then
-    if lsof -nP -iTCP:7000 -sTCP:LISTEN 2>/dev/null | grep -qi "ControlCe"; then
-        echo "⚠️  [Warning] macOS 'AirPlay Receiver' (ControlCenter) is listening on port 7000."
-        echo "   If the port cannot bind, disable 'AirPlay Receiver' in:"
-        echo "   System Settings -> General -> AirDrop & AirPlay -> AirPlay Receiver (Toggle Off)"
-        echo "   Or specify another port, e.g.: PORT=7001 ./startup.sh"
-        echo ""
-    fi
 fi
 
 # 4. Open browser after short delay

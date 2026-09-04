@@ -13,6 +13,7 @@ import {
   renameConversationLog,
   deleteConversationLog,
   cloneConversationTurn,
+  saveConversationOrder,
   listWorkspaces,
   createWorkspace,
   deleteWorkspace,
@@ -43,7 +44,7 @@ import {
 } from "./auth/user-manager.js";
 import { SafeUser } from "./auth/types.js";
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7009;
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -424,7 +425,7 @@ app.post("/api/users", requireAdmin, (req, res) => {
 // 12. PATCH /api/users/:id
 app.patch("/api/users/:id", requireAdmin, (req, res) => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = parseInt(req.params.id as string, 10);
     const { displayName, role, isActive } = req.body;
 
     const users = getUsers();
@@ -449,7 +450,7 @@ app.patch("/api/users/:id", requireAdmin, (req, res) => {
 // 13. POST /api/users/:id/reset-password
 app.post("/api/users/:id/reset-password", requireAdmin, (req, res) => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = parseInt(req.params.id as string, 10);
     const { newPassword } = req.body;
     if (!newPassword || newPassword.length < 6) {
       return res.status(400).json({ success: false, error: "Password must be at least 6 characters." });
@@ -470,7 +471,7 @@ app.post("/api/users/:id/reset-password", requireAdmin, (req, res) => {
 // 14. POST /api/users/:id/reset-2fa
 app.post("/api/users/:id/reset-2fa", requireAdmin, (req, res) => {
   try {
-    const userId = parseInt(req.params.id, 10);
+    const userId = parseInt(req.params.id as string, 10);
     const users = getUsers();
     const user = users.find((u) => u.id === userId);
     if (!user) return res.status(404).json({ success: false, error: "User not found." });
@@ -492,7 +493,7 @@ app.post("/api/users/:id/reset-2fa", requireAdmin, (req, res) => {
 app.delete("/api/users/:id", requireAdmin, (req, res) => {
   try {
     const { user: authUser } = getAuthContext(req);
-    const targetId = parseInt(req.params.id, 10);
+    const targetId = parseInt(req.params.id as string, 10);
     if (isNaN(targetId)) return res.status(400).json({ success: false, error: "Invalid user ID." });
 
     if (targetId === authUser?.id) {
@@ -830,6 +831,21 @@ app.get("/api/logs", (req, res) => {
     res.json({ logs, workspace });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// 7b. Reorder Saved Conversation Logs and Persist into session-order.json
+app.post("/api/logs/reorder", (req, res) => {
+  try {
+    const { userNumber } = getAuthContext(req);
+    const { orderedFilenames, workspace } = req.body;
+    if (!Array.isArray(orderedFilenames)) {
+      return res.status(400).json({ success: false, error: "orderedFilenames array is required." });
+    }
+    const saved = saveConversationOrder(orderedFilenames, workspace || "default", "logs", userNumber);
+    res.json({ success: saved, message: "Conversation order saved successfully." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

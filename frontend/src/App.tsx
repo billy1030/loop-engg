@@ -34,6 +34,7 @@ import {
   LogOut,
   KeyRound,
   Type,
+  GripVertical,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
@@ -104,7 +105,7 @@ export function App() {
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [fontPreference, setFontPreference] = useState<"segoe-ui" | "roboto">(() => {
-    return (localStorage.getItem("font_preference") as "segoe-ui" | "roboto") || "segoe-ui";
+    return (localStorage.getItem("font_preference") as "segoe-ui" | "roboto") || "roboto";
   });
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +164,25 @@ export function App() {
   const [editingSessionFile, setEditingSessionFile] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>("");
   const [subConvModalFile, setSubConvModalFile] = useState<string | null>(null);
+  const [draggedSessionKey, setDraggedSessionKey] = useState<string | null>(null);
+  const [dragOverSessionKey, setDragOverSessionKey] = useState<string | null>(null);
+
+  const handleReorderSessions = async (newOrderedSessions: any[]) => {
+    setSavedSessions(newOrderedSessions);
+    try {
+      const orderedFilenames = newOrderedSessions.map((s) => s.filename);
+      await fetch("/api/logs/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderedFilenames,
+          workspace: currentWorkspace,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to save reordered sessions:", err);
+    }
+  };
 
   const fetchWorkspaces = async () => {
     try {
@@ -273,8 +293,11 @@ export function App() {
         body: JSON.stringify({ newTitle: newTitle.trim(), workspace: currentWorkspace }),
       });
       if (res.ok) {
-        await fetchLogs();
+        setSavedSessions((prev) =>
+          prev.map((s) => (s.filename === filename ? { ...s, customTitle: newTitle.trim() } : s))
+        );
         setEditingSessionFile(null);
+        await fetchLogs(currentWorkspace);
       } else {
         const data = await res.json();
         showAlert(`Rename failed: ${data.error || "Unknown error"}`, "error");
@@ -640,15 +663,16 @@ export function App() {
 
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh", background: "var(--bg-primary)" }}>
-      {/* Sidebar Navigation (Widened to accommodate multi-tier tree depth timestamps) */}
+      {/* Sidebar Navigation (Widened and optimized padding to show maximum title information) */}
       <div
         style={{
-          width: 345,
+          width: 370,
+          minWidth: 350,
           background: "var(--bg-secondary)",
           borderRight: "1px solid var(--border-color)",
           display: "flex",
           flexDirection: "column",
-          padding: "20px 14px",
+          padding: "16px 8px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -679,7 +703,7 @@ export function App() {
                   color: "var(--accent)",
                 }}
               >
-                Port 7000
+                Port 7009
               </span>
               <span style={{ fontSize: 11, color: "var(--text-muted)" }}>MCP Protocol</span>
             </div>
@@ -1035,10 +1059,10 @@ export function App() {
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: 6,
+                gap: 5,
                 overflowY: "auto",
                 flex: 1,
-                padding: "10px 12px",
+                padding: "8px 5px",
               }}
             >
               {savedSessions.length === 0 ? (
@@ -1085,13 +1109,69 @@ export function App() {
                   ];
                   const branchBorderColor = branchColors[Math.min(depth, 5)];
 
+                  const isDraggingThis = draggedSessionKey === session.filename;
+                  const isDragOverThis = dragOverSessionKey === session.filename;
+
                   return (
-                    <div key={session.filename} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                    <div
+                      key={session.filename}
+                      draggable={editingSessionFile !== session.filename}
+                      onDragStart={(e) => {
+                        if (editingSessionFile === session.filename) return;
+                        setDraggedSessionKey(session.filename);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", session.filename);
+                      }}
+                      onDragOver={(e) => {
+                        if (!draggedSessionKey || draggedSessionKey === session.filename) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "move";
+                        if (dragOverSessionKey !== session.filename) {
+                          setDragOverSessionKey(session.filename);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverSessionKey === session.filename) {
+                          setDragOverSessionKey(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (!draggedSessionKey || draggedSessionKey === session.filename) {
+                          setDraggedSessionKey(null);
+                          setDragOverSessionKey(null);
+                          return;
+                        }
+
+                        const currentList = [...savedSessions];
+                        const sourceIdx = currentList.findIndex((s) => s.filename === draggedSessionKey);
+                        const targetIdx = currentList.findIndex((s) => s.filename === session.filename);
+
+                        if (sourceIdx !== -1 && targetIdx !== -1) {
+                          const [movedItem] = currentList.splice(sourceIdx, 1);
+                          currentList.splice(targetIdx, 0, movedItem);
+                          handleReorderSessions(currentList);
+                        }
+                        setDraggedSessionKey(null);
+                        setDragOverSessionKey(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedSessionKey(null);
+                        setDragOverSessionKey(null);
+                      }}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                        opacity: isDraggingThis ? 0.4 : 1,
+                        transition: "opacity 0.15s ease",
+                      }}
+                    >
                       <div
                         onClick={() => loadSession(session.filename)}
                         title={`Click to load: ${session.filename}${depth > 0 ? ` (Fork Level ${depth} / 5)` : ""}`}
                         style={{
-                          padding: isChild ? "5px 7px" : "7px 9px",
+                          padding: isChild ? "4px 6px" : "6px 8px",
                           borderRadius: 6,
                           fontSize: 11,
                           cursor: "pointer",
@@ -1100,16 +1180,20 @@ export function App() {
                             : isChild
                             ? "var(--bg-primary)"
                             : "var(--bg-secondary)",
-                          border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
+                          border: isDragOverThis
+                            ? "2px dashed var(--accent)"
+                            : isActive
+                            ? "1px solid var(--accent)"
+                            : "1px solid var(--border-color)",
                           transition: "all 0.15s ease",
                           position: "relative",
                           boxShadow: isActive ? "0 0 0 1px var(--accent)" : "none",
                         }}
                         onMouseEnter={(e) => {
-                          if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
+                          if (!isActive && !isDragOverThis) e.currentTarget.style.borderColor = "var(--text-muted)";
                         }}
                         onMouseLeave={(e) => {
-                          if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
+                          if (!isActive && !isDragOverThis) e.currentTarget.style.borderColor = "var(--border-color)";
                         }}
                       >
                         {/* First Line: Title Only (Full Width) */}
@@ -1143,7 +1227,12 @@ export function App() {
                                 }}
                               />
                               <button
-                                onClick={() => handleRenameSession(session.filename, editingTitle)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleRenameSession(session.filename, editingTitle);
+                                }}
                                 title="Save Title"
                                 style={{
                                   background: "rgba(16, 185, 129, 0.15)",
@@ -1159,7 +1248,12 @@ export function App() {
                                 <Check size={12} />
                               </button>
                               <button
-                                onClick={() => setEditingSessionFile(null)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setEditingSessionFile(null);
+                                }}
                                 title="Cancel"
                                 style={{
                                   background: "transparent",
@@ -1176,7 +1270,22 @@ export function App() {
                               </button>
                             </div>
                           ) : (
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
+                              {/* Drag Handle Grip */}
+                              <span
+                                style={{
+                                  cursor: "grab",
+                                  color: "var(--text-muted)",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  opacity: 0.6,
+                                  flexShrink: 0,
+                                }}
+                                title="Drag to reorder session"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <GripVertical size={11} />
+                              </span>
                               {depth === 0 ? (
                                 <MessageSquare size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
                               ) : depth === 1 ? (
@@ -1260,32 +1369,39 @@ export function App() {
                             {/* Action Icon Buttons Grouped on the Right */}
                             {editingSessionFile !== session.filename && (
                               <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
-                                {/* Sub-Conversation Inspector / Fork Icon Button */}
+                                {/* Sub-Conversation Inspector / Fork Icon Button (Dimmed & Disabled when max fork level 5+ reached) */}
                                 <button
+                                  disabled={depth >= 5}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    if (depth >= 5) return;
                                     setSubConvModalFile(session.filename);
                                   }}
-                                  title="Inspect Sub-Conversations & Fork/Clone"
+                                  title={depth >= 5 ? "Max fork depth reached (Level 5) - cannot fork deeper" : "Inspect Sub-Conversations & Fork/Clone"}
                                   style={{
                                     background: "transparent",
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: depth >= 5 ? "not-allowed" : "pointer",
+                                    opacity: depth >= 5 ? 0.3 : 1,
                                     padding: "2px 3px",
                                     borderRadius: 4,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    color: "var(--text-muted)",
-                                    transition: "color 0.15s, background-color 0.15s",
+                                    color: depth >= 5 ? "var(--text-muted)" : "var(--text-muted)",
+                                    transition: "color 0.15s, background-color 0.15s, opacity 0.15s",
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = "var(--accent)";
-                                    e.currentTarget.style.backgroundColor = "rgba(37, 99, 235, 0.1)";
+                                    if (depth < 5) {
+                                      e.currentTarget.style.color = "var(--accent)";
+                                      e.currentTarget.style.backgroundColor = "rgba(37, 99, 235, 0.1)";
+                                    }
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = "var(--text-muted)";
-                                    e.currentTarget.style.backgroundColor = "transparent";
+                                    if (depth < 5) {
+                                      e.currentTarget.style.color = "var(--text-muted)";
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }
                                   }}
                                 >
                                   <GitFork size={11.5} />
@@ -1360,13 +1476,11 @@ export function App() {
                       {hasChildren && (
                         <div
                           style={{
-                            marginLeft: 8,
-                            paddingLeft: 6,
+                            marginLeft: 6,
+                            paddingLeft: 4,
                             borderLeft: `2px solid ${branchBorderColor}`,
                             display: "flex",
                             flexDirection: "column",
-                            gap: 3,
-                            marginTop: 2,
                             marginBottom: 3,
                           }}
                         >

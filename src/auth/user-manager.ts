@@ -282,11 +282,12 @@ export async function generateQrCodeDataUrl(otpauthUrl: string): Promise<string>
 export function verifyTotpToken(token: string, secret: string): boolean {
   try {
     const cleanToken = token.trim();
-    return verifySync({
+    const result: any = verifySync({
       token: cleanToken,
       secret,
       epochTolerance: 60, // ±60s clock skew tolerance
     });
+    return typeof result === "boolean" ? result : Boolean(result?.valid);
   } catch {
     return false;
   }

@@ -469,7 +469,49 @@ export function listConversationLogs(workspace: string = "default", baseDir: str
     r.forkLevel = computeDepth(r);
   });
 
+  // Load custom session order from session-order.json if present
+  const orderFilePath = path.join(logsDir, "session-order.json");
+  if (fs.existsSync(orderFilePath)) {
+    try {
+      const orderList = JSON.parse(fs.readFileSync(orderFilePath, "utf-8"));
+      if (Array.isArray(orderList) && orderList.length > 0) {
+        const orderMap = new Map<string, number>();
+        orderList.forEach((fname: string, index: number) => {
+          orderMap.set(fname, index);
+        });
+
+        return results.sort((a, b) => {
+          const aOrder = orderMap.has(a.filename) ? orderMap.get(a.filename)! : 9999;
+          const bOrder = orderMap.has(b.filename) ? orderMap.get(b.filename)! : 9999;
+          if (aOrder !== bOrder) return aOrder - bOrder;
+          return b.filename.localeCompare(a.filename);
+        });
+      }
+    } catch (e) {
+      console.warn(`[Conversation Logger] Failed to read session-order.json in ${logsDir}`);
+    }
+  }
+
   return results.sort((a, b) => b.filename.localeCompare(a.filename));
+}
+
+/**
+ * Saves custom conversation ordering list into session-order.json in the workspace directory
+ */
+export function saveConversationOrder(
+  orderedFilenames: string[],
+  workspace: string = "default",
+  baseDir: string = "logs",
+  userNumber: string = "00000"
+): boolean {
+  ensureWorkspaceMigration(baseDir, userNumber);
+  const dir = getWorkspaceDir(workspace, baseDir, userNumber);
+  if (!fs.existsSync(dir)) return false;
+
+  const orderFilePath = path.join(dir, "session-order.json");
+  fs.writeFileSync(orderFilePath, JSON.stringify(orderedFilenames, null, 2), "utf-8");
+  console.log(`[Conversation Logger] 🔀 Saved custom session order (${orderedFilenames.length} items) to logs/${userNumber}/${workspace}/session-order.json`);
+  return true;
 }
 
 /**
@@ -783,7 +825,7 @@ export function cloneConversationTurn(
   fs.writeFileSync(fullPath, mdParts.join("\n"), "utf-8");
   console.log(`[Conversation Logger] 🌿 Cloned Turn ${turnIndex} from "${filename}" to logs/${userNumber}/${destWorkspace}/${newFilename}`);
 
-  return { newFilename, title: newTitle, workspace: destWorkspace, attachedDocHashes: finalDocHashes };
+  return { newFilename, title: newTitle, workspace: destWorkspace, attachedDocHashes: finalDocHashes, forkLevel: nextForkLevel };
 }
 
 /**

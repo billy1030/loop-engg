@@ -11,9 +11,9 @@
   --accent-emerald: #16a34a;
   --accent-amber: #d97706;
   --accent-purple: #7c3aed;
-  /* Default: Segoe UI / Native OS */
-  --font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  /* Default: Roboto */
+  --font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 /* Dynamic Font Attribute Overrides */

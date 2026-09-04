@@ -1,6 +1,6 @@
-# Loop Engineering Technical Documentation Index
+# MiniBot Technical Documentation Index
 
-Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. This directory provides in-depth technical documentation covering system architecture, design decisions, challenges tackled, protocols, and integration guides.
+Welcome to the **MiniBot** technical documentation. This directory provides in-depth technical documentation covering system architecture, design decisions, challenges tackled, protocols, and integration guides.
 
 ## Documentation Index
 

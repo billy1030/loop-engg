@@ -1,12 +1,13 @@
-# Loop Engineering Chatbot (AI 小助手) with MCP Protocol
+# MiniBot - Autonomous Chatbot with Model Context Protocol (MCP) & Tauri Desktop
 
 [![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 [![Node](https://img.shields.io/badge/Node.js-20%2B%20%7C%2026%20ESM-green.svg)](https://nodejs.org)
 [![React](https://img.shields.io/badge/React-19.2-cyan.svg)](https://react.dev)
-[![Port](https://img.shields.io/badge/Default%20Port-7000%20%2F%207001-orange.svg)](http://localhost:7001)
+[![Port](https://img.shields.io/badge/Unified%20Port-7009-orange.svg)](http://localhost:7009)
+[![Desktop](https://img.shields.io/badge/Desktop-Tauri%20v2-24C8D8.svg)](https://tauri.app)
 [![Protocol](https://img.shields.io/badge/Protocol-Model%20Context%20Protocol%20(MCP)-blueviolet.svg)](https://modelcontextprotocol.io)
 
-An enterprise-grade, iterative **"Loop Engineering" Chatbot** that equips OpenAI-compatible Large Language Models (such as MiniMax-M3, DeepSeek, OpenAI, Ollama, vLLM) with autonomous reasoning, continuous tool invocation, and stateful multi-turn memory via the **Model Context Protocol (MCP)**.
+**MiniBot** is an enterprise-grade, iterative autonomous chatbot that equips OpenAI-compatible Large Language Models (MiniMax, DeepSeek, OpenAI, Ollama, vLLM) with autonomous reasoning, tool execution, stateful multi-turn memory, and document analysis via the **Model Context Protocol (MCP)**. It runs both as a **unified local web application** and as a **lightweight standalone desktop application powered by Tauri v2**.
 
 When a standard LLM lacks real-time facts or external abilities, it enters an autonomous **ReAct cycle** (`Thought ➜ Tool Call ➜ Observation ➜ Reflection`), recursively looping until the task is complete.
 
@@ -122,20 +123,27 @@ Comprehensive architecture specifications, engineering post-mortems, and protoco
 | **[09. Multi-MCP Extensibility & Skills Prompt Patterns](./tech-docs/09-multi-mcp-and-skills-prompt-patterns.md)** | Multi-server MCP architectures, dynamic registry, and safety protocols. |
 | **[10. BigFix Enterprise MCP Integration](./tech-docs/10-bigfix-enterprise-mcp-integration.md)** | Streamable-HTTP remote MCP server integration with timeout resilience. |
 | **[11. Standalone HTML Export Engine](./tech-docs/11-html-export-engine.md)** | Client-side standalone offline HTML report generator with Mermaid rendering. |
+| **[12. Workspace & Sub-Conversation Tree Architecture](./tech-docs/12-workspace-and-conversation-tree-architecture.md)** | Zero-database disk hierarchy, folder-based workspaces, recursive multi-tier fork tree. |
+| **[13. Multi-User System, Folder Isolation & 2FA](./tech-docs/13-multi-user-system-and-2fa-architecture.md)** | Enterprise multi-tenant isolation, Scrypt hashing, RFC 6238 TOTP 2FA, emergency recovery codes. |
+| **[14. Outlook Interface Design Architecture](./tech-docs/14-outlook-interface-design-architecture.md)** | Native Segoe UI design tokens, layout hierarchy, and inline editing data grids. |
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-loop-engg/
+minibot/
 ├── .planning/                  # GSD roadmap, phase context, and execution plans
-├── frontend/                   # React 19 + TypeScript + Vite 8 SPA
+├── frontend/                   # React 19 + TypeScript + Vite 8 SPA (Day Theme)
 │   ├── src/
 │   │   ├── components/         # AlertModal, Markdown renderer, modal inspectors
 │   │   ├── App.tsx             # Main chat UI, sidebar, editable MCP registry, model panel
-│   │   └── index.css           # Vanilla CSS design tokens (Day Theme) + animations
+│   │   └── index.css           # Vanilla CSS design tokens (Outlook/Day Theme) + animations
 ├── logs/                       # Auto-saved Markdown conversation sessions (YYYY-MM-DD_HH-mm-ss.md)
+├── src-tauri/                  # Tauri v2 Rust Desktop App Core
+│   ├── src/                    # Rust entrypoint and IPC commands
+│   ├── Cargo.toml              # Tauri v2 Rust dependencies
+│   └── tauri.conf.json         # Desktop window, security & build configuration
 ├── src/
 │   ├── cli/                    # Interactive terminal REPL
 │   ├── config/                 # Zod configuration schemas & loader
@@ -143,11 +151,11 @@ loop-engg/
 │   ├── logger/                 # Markdown conversation persistence & session parser
 │   ├── mcp/                    # MCP Client Manager, BigFix client & Tool registry
 │   │   └── servers/            # Built-in WebSearch and MiniMax MCP servers
-│   └── server.ts               # Express 5 backend with SSE streaming on Port 7000/7001
+│   └── server.ts               # Express 5 backend with SSE streaming on Port 7009
 ├── tech-docs/                  # In-depth technical architecture documentation
 ├── loop.config.json            # Model settings, prompt configs, and active MCP servers
-├── startup.bat                 # Windows one-click launcher
-├── startup.sh                  # macOS / Linux one-click launcher
+├── startup.bat                 # Windows one-click launcher (Port 7009)
+├── startup.sh                  # macOS / Linux one-click launcher (Port 7009)
 └── package.json
 ```
 

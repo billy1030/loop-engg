@@ -391,6 +391,12 @@ export function listConversationLogs(workspace: string = "default", baseDir: str
       const content = fs.readFileSync(fullPath, "utf-8");
 
       const titleMatch = content.match(/- \*\*Title\*\*: `([^`]+)`/);
+      const userMatch = content.match(/- \*\*User\*\*: `([^`]+)`/);
+      // If user tag is specified and doesn't match current user (and not root 00000), skip
+      if (userMatch && userMatch[1].trim() !== userNumber && userNumber !== "00000") {
+        continue;
+      }
+
       const modelMatch = content.match(/- \*\*Model\*\*: `([^`]+)`/);
       const iterMatch = content.match(/- \*\*Iterations\*\*: (\d+)/);
       const toolMatch = content.match(/- \*\*Total Tool Calls\*\*: (\d+)/);
@@ -478,6 +484,15 @@ export function parseConversationLog(filename: string, workspace: string = "defa
   }
 
   const content = fs.readFileSync(fullPath, "utf-8");
+
+  // Strict User Verification: Check if log has User tag in Metadata and enforce ownership
+  const userMatch = content.match(/- \*\*User\*\*: `([^`]+)`/);
+  if (userMatch) {
+    const fileUserNumber = userMatch[1].trim();
+    if (fileUserNumber !== userNumber && userNumber !== "00000") {
+      throw new Error(`Unauthorized access: Log file "${safeFilename}" belongs to user ${fileUserNumber}.`);
+    }
+  }
 
   // Extract Title and Attached Document Hashes
   const titleMatch = content.match(/- \*\*Title\*\*: `([^`]+)`/);

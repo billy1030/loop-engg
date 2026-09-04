@@ -29,6 +29,11 @@ import {
   Folder,
   FolderPlus,
   Brain,
+  Shield,
+  Users,
+  LogOut,
+  KeyRound,
+  Type,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
@@ -36,6 +41,11 @@ import { AlertModal, type ModalAlertProps } from "./components/AlertModal";
 import { UploadDocModal } from "./components/UploadDocModal";
 import { SubConversationModal } from "./components/SubConversationModal";
 import { ThoughtBlock } from "./components/ThoughtBlock";
+import { useAuth } from "./contexts/AuthContext";
+import { LoginPage } from "./pages/LoginPage";
+import { TwoFactorSetupModal } from "./components/TwoFactorSetupModal";
+import { UserManagementModal } from "./components/UserManagementModal";
+import { ChangePasswordModal } from "./components/ChangePasswordModal";
 
 interface ToolCallLog {
   id: string;
@@ -88,6 +98,33 @@ interface WorkspaceInfo {
 }
 
 export function App() {
+  const { currentUser, isLoading: isAuthLoading, logout } = useAuth();
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [showUserMgmtModal, setShowUserMgmtModal] = useState(false);
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [fontPreference, setFontPreference] = useState<"segoe-ui" | "roboto">(() => {
+    return (localStorage.getItem("font_preference") as "segoe-ui" | "roboto") || "segoe-ui";
+  });
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Sync font preference to HTML root element
+  useEffect(() => {
+    document.documentElement.setAttribute("data-font", fontPreference);
+    localStorage.setItem("font_preference", fontPreference);
+  }, [fontPreference]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -585,6 +622,21 @@ export function App() {
       setCurrentStep(null);
     }
   };
+
+  if (isAuthLoading) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary, #0f172a)", color: "#fff" }}>
+        <Loader2 size={32} className="animate-spin" color="var(--accent, #2563eb)" />
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={() => {
+      fetchWorkspaces();
+      fetchLogs(currentWorkspace);
+    }} />;
+  }
 
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh", background: "var(--bg-primary)" }}>
@@ -1804,6 +1856,291 @@ export function App() {
             >
               <Download size={13} /> Export HTML
             </button>
+
+            {/* Separator */}
+            <div style={{ width: 1, height: 20, background: "var(--border-color)" }} />
+
+            {/* SLS-Style User Dropdown Menu */}
+            <div style={{ position: "relative" }} ref={userMenuRef}>
+              <button
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "4px 10px 4px 6px",
+                  borderRadius: 20,
+                  background: isUserMenuOpen ? "var(--bg-card)" : "var(--bg-card)",
+                  border: isUserMenuOpen ? "1px solid var(--accent)" : "1px solid var(--border-color)",
+                  color: "var(--text-main)",
+                  fontSize: 12,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  outline: "none",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isUserMenuOpen) e.currentTarget.style.borderColor = "var(--accent)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!isUserMenuOpen) e.currentTarget.style.borderColor = "var(--border-color)";
+                }}
+              >
+                <div
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: "50%",
+                    background: "linear-gradient(135deg, var(--accent, #2563eb), #7c3aed)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#fff",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                  }}
+                >
+                  {currentUser?.username.slice(0, 1).toUpperCase()}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.1 }}>
+                  <span style={{ fontWeight: 600, fontSize: 12 }}>
+                    {currentUser?.displayName || currentUser?.username}
+                  </span>
+                  <span style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace" }}>
+                    #{currentUser?.userNumber}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={13}
+                  color="var(--text-muted)"
+                  style={{
+                    transform: isUserMenuOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
+
+              {/* Dropdown Popover Card */}
+              {isUserMenuOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: "calc(100% + 8px)",
+                    width: 240,
+                    background: "var(--bg-secondary, #1e293b)",
+                    border: "1px solid var(--border-color, #334155)",
+                    borderRadius: 12,
+                    boxShadow: "0 12px 30px rgba(0,0,0,0.45)",
+                    zIndex: 1000,
+                    padding: "8px 0",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  {/* User Profile Header */}
+                  <div style={{ padding: "8px 14px 10px", borderBottom: "1px solid var(--border-color)" }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, color: "var(--text-main)" }}>
+                      {currentUser?.displayName || currentUser?.username}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 3 }}>
+                      <span style={{ fontSize: 11, color: "var(--text-muted)" }}>@{currentUser?.username}</span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          padding: "1px 6px",
+                          borderRadius: 4,
+                          background: currentUser?.role === "admin" ? "rgba(124, 58, 237, 0.15)" : "rgba(37, 99, 235, 0.15)",
+                          color: currentUser?.role === "admin" ? "#a78bfa" : "var(--accent)",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {currentUser?.role}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Admin Functions Section (if Admin) */}
+                  {currentUser?.role === "admin" && (
+                    <>
+                      <div style={{ padding: "6px 14px 2px", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.5px" }}>
+                        ADMIN FUNCTIONS
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setShowUserMgmtModal(true);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "7px 14px",
+                          background: "transparent",
+                          border: "none",
+                          color: "var(--text-main)",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          transition: "background 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        <Users size={13} color="#a78bfa" />
+                        <span>User Management</span>
+                      </button>
+                      <div style={{ height: 1, background: "var(--border-color)", margin: "4px 0" }} />
+                    </>
+                  )}
+
+                  {/* User Functions Section */}
+                  <div style={{ padding: "6px 14px 2px", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.5px" }}>
+                    USER FUNCTIONS
+                  </div>
+
+                  {/* 2FA Setup */}
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setShow2FAModal(true);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "7px 14px",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-main)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Shield size={13} color={currentUser?.totpEnabled ? "#10b981" : "#f59e0b"} />
+                      <span>2FA Authentication</span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        background: currentUser?.totpEnabled ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                        color: currentUser?.totpEnabled ? "#10b981" : "#f59e0b",
+                      }}
+                    >
+                      {currentUser?.totpEnabled ? "ON" : "OFF"}
+                    </span>
+                  </button>
+
+                  {/* Change Password */}
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      setShowChangePasswordModal(true);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 14px",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-main)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <KeyRound size={13} color="var(--accent)" />
+                    <span>Change Password</span>
+                  </button>
+
+                  {/* Font Selection (Segoe UI / Roboto) */}
+                  <button
+                    onClick={() => {
+                      setFontPreference((prev) => (prev === "segoe-ui" ? "roboto" : "segoe-ui"));
+                    }}
+                    title="Toggle between Segoe UI (System) and Roboto (Google Font)"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "7px 14px",
+                      background: "transparent",
+                      border: "none",
+                      color: "var(--text-main)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Type size={13} color="#0284c7" />
+                      <span>Font</span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        background: fontPreference === "segoe-ui" ? "rgba(2, 132, 199, 0.12)" : "rgba(124, 58, 237, 0.12)",
+                        color: fontPreference === "segoe-ui" ? "#0284c7" : "#7c3aed",
+                      }}
+                    >
+                      {fontPreference === "segoe-ui" ? "Segoe UI" : "Roboto"}
+                    </span>
+                  </button>
+
+                  <div style={{ height: 1, background: "var(--border-color)", margin: "4px 0" }} />
+
+                  {/* Logout */}
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      logout();
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 14px",
+                      background: "transparent",
+                      border: "none",
+                      color: "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "background 0.15s ease",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <LogOut size={13} color="#ef4444" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
@@ -2698,6 +3035,26 @@ export function App() {
           await fetchWorkspaces();
           await loadSession(newFilename, currentWorkspace);
         }}
+        showAlert={showAlert}
+      />
+
+      {/* Two-Factor Authentication Setup Modal */}
+      <TwoFactorSetupModal
+        isOpen={show2FAModal}
+        onClose={() => setShow2FAModal(false)}
+      />
+
+      {/* User Management Modal (Admin Only) */}
+      <UserManagementModal
+        isOpen={showUserMgmtModal}
+        currentUser={currentUser}
+        onClose={() => setShowUserMgmtModal(false)}
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
         showAlert={showAlert}
       />
     </div>

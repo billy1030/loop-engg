@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "userNumber": "00000",
+    "username": "admin",
+    "displayName": "Admin",
+    "passwordHash": "1badf51fd5a341377013da731c8f0fcd:9414d114f8c96cde8721958919ae3d96c963d51414ad382074a2ede7183621558037325bee503969f7d6cf3596ed8a3c733b8aeb6c6f6036d71700d658f7ea9e",
+    "role": "admin",
+    "isActive": true,
+    "totpSecret": null,
+    "totpEnabled": false,
+    "recoveryCodesHashed": [],
+    "usedTotpHashes": [],
+    "createdAt": "2026-09-04T04:01:05.047Z",
+    "lastLoginAt": "2026-09-04T04:05:10.057Z",
+    "pendingTotpSecret": "VEFZBWPHNYI6DKBJ2JJD3YELEZMLRC7M",
+    "pendingRecoveryCodesHashed": [
+      "83f502d9168e0fd6c00ee464e2d41b5cd5d316e75017756a90be1d56c5fb4cf5",
+      "5929531b4ef466277c261a4de2a38e7c44eb59a254da09243483c20d69a6ba2c",
+      "94c9f27dc7aa5bb52590b83c64e32ece53f11c21ae29bcad6cd59dd80f8e1b3f",
+      "18b658503db10e6664b3ab76d6ecc197405703bfd0d8a50dbc3be972a8b7a532",
+      "d74ee56455f2ae5aaf2488f15493152c9fc17b6bcd8a34bff66fa29e888e5cf5",
+      "06c8f7855a52df40231b15427e2198d1f4448768fc4ea319be10bd2a70c89148",
+      "7a1e620c8deff7dae11d0c61e4bfbaac67baf9df599a5323e751eae1689ce850",
+      "d76b3a5f606adda09d6371e2469794191abd3e719fdc81ea36994157cdc0715d",
+      "30a586154fc012c0486958ce9c6cccebb5373f258bf7a578a07fcdaaa8bda307",
+      "41616bd3c2c35a76f42d94ec89230a0a5a74e5ce71fdfc5a4fd0c81bac795886"
+    ]
+  }
+]

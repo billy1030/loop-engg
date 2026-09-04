@@ -11,8 +11,13 @@ export class DocumentManager {
   private preprocessDir: string;
   private indexPath: string;
 
-  constructor(baseDir?: string) {
-    this.baseDir = baseDir || path.resolve(process.cwd(), "storage");
+  constructor(baseDir?: string, userNumber?: string) {
+    if (userNumber) {
+      const safeNum = String(userNumber).padStart(5, "0").replace(/[^\d]/g, "").slice(0, 5) || "00000";
+      this.baseDir = path.resolve(process.cwd(), "storage/users", safeNum);
+    } else {
+      this.baseDir = baseDir || path.resolve(process.cwd(), "storage");
+    }
     this.indexDir = path.join(this.baseDir, "index");
     this.rawDir = path.join(this.baseDir, "documents", "raw");
     this.preprocessDir = path.join(this.baseDir, "documents", "preprocess");
@@ -28,15 +33,28 @@ export class DocumentManager {
   }
 
   public getIndex(): DocumentIndex {
-    if (!fs.existsSync(this.indexPath)) {
-      return {};
+    const combinedIndex: DocumentIndex = {};
+
+    // 1. Read global shared index first if it exists
+    const globalIndexPath = path.resolve(process.cwd(), "storage/index/documents-index.json");
+    if (fs.existsSync(globalIndexPath)) {
+      try {
+        const rawGlobal = fs.readFileSync(globalIndexPath, "utf-8");
+        const parsedGlobal = JSON.parse(rawGlobal) as DocumentIndex;
+        Object.assign(combinedIndex, parsedGlobal);
+      } catch {}
     }
-    try {
-      const raw = fs.readFileSync(this.indexPath, "utf-8");
-      return JSON.parse(raw) as DocumentIndex;
-    } catch {
-      return {};
+
+    // 2. Overlay user-specific index if distinct from global
+    if (this.indexPath !== globalIndexPath && fs.existsSync(this.indexPath)) {
+      try {
+        const rawUser = fs.readFileSync(this.indexPath, "utf-8");
+        const parsedUser = JSON.parse(rawUser) as DocumentIndex;
+        Object.assign(combinedIndex, parsedUser);
+      } catch {}
     }
+
+    return combinedIndex;
   }
 
   private saveIndex(index: DocumentIndex): void {
@@ -45,6 +63,30 @@ export class DocumentManager {
 
   public computeHash(buffer: Buffer): string {
     return crypto.createHash("sha256").update(buffer).digest("hex");
+  }
+
+  private resolvePreprocessPath(doc: DocumentMetadata): string | null {
+    // 1. Check user preprocessDir
+    const userPath = path.join(this.preprocessDir, doc.preprocessFileName);
+    if (fs.existsSync(userPath)) return userPath;
+
+    // 2. Check global preprocess directory
+    const globalPath = path.resolve(process.cwd(), "storage/documents/preprocess", doc.preprocessFileName);
+    if (fs.existsSync(globalPath)) return globalPath;
+
+    return null;
+  }
+
+  private resolveRawPath(doc: DocumentMetadata): string | null {
+    // 1. Check user rawDir
+    const userPath = path.join(this.rawDir, doc.rawFileName);
+    if (fs.existsSync(userPath)) return userPath;
+
+    // 2. Check global raw directory
+    const globalPath = path.resolve(process.cwd(), "storage/documents/raw", doc.rawFileName);
+    if (fs.existsSync(globalPath)) return globalPath;
+
+    return null;
   }
 
   /**
@@ -61,11 +103,11 @@ export class DocumentManager {
       // Check for CAS deduplication
       if (index[hash]) {
         const existing = index[hash];
-        const rawPath = path.join(this.rawDir, existing.rawFileName);
-        const textPath = path.join(this.preprocessDir, existing.preprocessFileName);
+        const rawPath = this.resolveRawPath(existing);
+        const textPath = this.resolvePreprocessPath(existing);
 
         // Verify both disk files still exist
-        if (fs.existsSync(rawPath) && fs.existsSync(textPath)) {
+        if (rawPath && textPath) {
           return {
             success: true,
             isDuplicate: true,
@@ -136,8 +178,8 @@ export class DocumentManager {
       const doc = index[hash];
       if (!doc) continue;
 
-      const preprocessPath = path.join(this.preprocessDir, doc.preprocessFileName);
-      if (fs.existsSync(preprocessPath)) {
+      const preprocessPath = this.resolvePreprocessPath(doc);
+      if (preprocessPath && fs.existsSync(preprocessPath)) {
         const text = fs.readFileSync(preprocessPath, "utf-8").trim();
         if (text) {
           activeCount++;
@@ -162,11 +204,11 @@ export class DocumentManager {
     const doc = index[hash];
     if (!doc) return false;
 
-    const rawPath = path.join(this.rawDir, doc.rawFileName);
-    const textPath = path.join(this.preprocessDir, doc.preprocessFileName);
+    const rawPath = this.resolveRawPath(doc);
+    const textPath = this.resolvePreprocessPath(doc);
 
-    if (fs.existsSync(rawPath)) fs.unlinkSync(rawPath);
-    if (fs.existsSync(textPath)) fs.unlinkSync(textPath);
+    if (rawPath && fs.existsSync(rawPath)) fs.unlinkSync(rawPath);
+    if (textPath && fs.existsSync(textPath)) fs.unlinkSync(textPath);
 
     delete index[hash];
     this.saveIndex(index);

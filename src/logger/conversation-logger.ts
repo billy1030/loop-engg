@@ -12,6 +12,7 @@ interface ToolExecutionLog {
 interface ConversationSession {
   sessionFile?: string; // If provided, append to this session file instead of creating a new one
   workspace?: string;    // Target workspace folder (defaults to "default")
+  userNumber?: string;   // User number for folder isolation (e.g. "00000")
   userPrompt: string;
   model: string;
   iterations: number;
@@ -37,11 +38,24 @@ function formatDateForFilename(d: Date): string {
 }
 
 /**
- * Clean and resolve workspace directory safely
+ * Get root logs directory for a user, e.g. logs/00000/
  */
-export function getWorkspaceDir(workspace: string = "default", baseDir: string = "logs"): string {
+export function getUserLogsRoot(userNumber: string = "00000", baseDir: string = "logs"): string {
+  const safeNumber = String(userNumber).padStart(5, "0").replace(/[^\d]/g, "").slice(0, 5) || "00000";
+  const userRoot = path.resolve(process.cwd(), baseDir, safeNumber);
+  if (!fs.existsSync(userRoot)) {
+    fs.mkdirSync(userRoot, { recursive: true });
+  }
+  return userRoot;
+}
+
+/**
+ * Clean and resolve workspace directory safely for a specific user
+ */
+export function getWorkspaceDir(workspace: string = "default", baseDir: string = "logs", userNumber: string = "00000"): string {
   const safeName = (workspace || "default").replace(/[^\w\d\-_ ]/g, "").trim() || "default";
-  const targetDir = path.resolve(process.cwd(), baseDir, safeName);
+  const parentDir = getUserLogsRoot(userNumber, baseDir);
+  const targetDir = path.resolve(parentDir, safeName);
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
@@ -55,31 +69,48 @@ export interface WorkspaceSummary {
 }
 
 /**
- * Ensures existing legacy session files in logs/ root are migrated into logs/default/
+ * Ensures existing legacy session files in logs/ root or logs/default are migrated into logs/00000/default/
  */
-export function ensureWorkspaceMigration(baseDir: string = "logs") {
+export function ensureWorkspaceMigration(baseDir: string = "logs", userNumber: string = "00000") {
   const logsRoot = path.resolve(process.cwd(), baseDir);
   if (!fs.existsSync(logsRoot)) {
     fs.mkdirSync(logsRoot, { recursive: true });
   }
 
-  const defaultDir = path.join(logsRoot, "default");
-  if (!fs.existsSync(defaultDir)) {
-    fs.mkdirSync(defaultDir, { recursive: true });
+  const userRoot = getUserLogsRoot(userNumber, baseDir);
+  const userDefaultDir = path.join(userRoot, "default");
+  if (!fs.existsSync(userDefaultDir)) {
+    fs.mkdirSync(userDefaultDir, { recursive: true });
   }
 
-  // Check if there are .md files directly under logs/
-  const items = fs.readdirSync(logsRoot, { withFileTypes: true });
-  for (const item of items) {
-    if (item.isFile() && item.name.endsWith(".md") && item.name !== "README.md") {
-      const oldPath = path.join(logsRoot, item.name);
-      const newPath = path.join(defaultDir, item.name);
-      if (!fs.existsSync(newPath)) {
-        try {
-          fs.renameSync(oldPath, newPath);
-          console.log(`[Workspace] 📦 Migrated legacy session ${item.name} to logs/default/`);
-        } catch (e) {
-          console.warn(`[Workspace] Migration error for ${item.name}:`, e);
+  // 1. If admin (00000), check if legacy direct logs/default/ exists and move it
+  if (userNumber === "00000") {
+    const legacyDefaultDir = path.join(logsRoot, "default");
+    if (fs.existsSync(legacyDefaultDir) && legacyDefaultDir !== userDefaultDir) {
+      const items = fs.readdirSync(legacyDefaultDir, { withFileTypes: true });
+      for (const item of items) {
+        if (item.isFile() && item.name.endsWith(".md") && item.name !== "README.md") {
+          const oldPath = path.join(legacyDefaultDir, item.name);
+          const newPath = path.join(userDefaultDir, item.name);
+          if (!fs.existsSync(newPath)) {
+            try {
+              fs.renameSync(oldPath, newPath);
+            } catch (e) {}
+          }
+        }
+      }
+    }
+
+    // Check if there are root .md files
+    const rootItems = fs.readdirSync(logsRoot, { withFileTypes: true });
+    for (const item of rootItems) {
+      if (item.isFile() && item.name.endsWith(".md") && item.name !== "README.md") {
+        const oldPath = path.join(logsRoot, item.name);
+        const newPath = path.join(userDefaultDir, item.name);
+        if (!fs.existsSync(newPath)) {
+          try {
+            fs.renameSync(oldPath, newPath);
+          } catch (e) {}
         }
       }
     }
@@ -87,18 +118,18 @@ export function ensureWorkspaceMigration(baseDir: string = "logs") {
 }
 
 /**
- * List all available workspace folders
+ * List all available workspace folders for a specific user
  */
-export function listWorkspaces(baseDir: string = "logs"): WorkspaceSummary[] {
-  ensureWorkspaceMigration(baseDir);
-  const logsRoot = path.resolve(process.cwd(), baseDir);
-  const entries = fs.readdirSync(logsRoot, { withFileTypes: true });
+export function listWorkspaces(baseDir: string = "logs", userNumber: string = "00000"): WorkspaceSummary[] {
+  ensureWorkspaceMigration(baseDir, userNumber);
+  const userRoot = getUserLogsRoot(userNumber, baseDir);
+  const entries = fs.readdirSync(userRoot, { withFileTypes: true });
 
   const workspaces: WorkspaceSummary[] = [];
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const wsDir = path.join(logsRoot, entry.name);
+      const wsDir = path.join(userRoot, entry.name);
       const files = fs.readdirSync(wsDir).filter((f) => f.endsWith(".md") && f !== "README.md");
       workspaces.push({
         name: entry.name,
@@ -122,17 +153,18 @@ export function listWorkspaces(baseDir: string = "logs"): WorkspaceSummary[] {
 }
 
 /**
- * Create a new workspace directory
+ * Create a new workspace directory for a user
  */
-export function createWorkspace(name: string, baseDir: string = "logs"): string {
+export function createWorkspace(name: string, baseDir: string = "logs", userNumber: string = "00000"): string {
   const safeName = name.replace(/[^\w\d\-_ ]/g, "").trim();
   if (!safeName) {
     throw new Error("Invalid workspace name");
   }
-  const wsDir = path.resolve(process.cwd(), baseDir, safeName);
+  const userRoot = getUserLogsRoot(userNumber, baseDir);
+  const wsDir = path.resolve(userRoot, safeName);
   if (!fs.existsSync(wsDir)) {
     fs.mkdirSync(wsDir, { recursive: true });
-    console.log(`[Workspace] 📁 Created workspace folder: logs/${safeName}`);
+    console.log(`[Workspace] 📁 Created workspace folder for ${userNumber}: logs/${userNumber}/${safeName}`);
   }
   return safeName;
 }
@@ -140,15 +172,16 @@ export function createWorkspace(name: string, baseDir: string = "logs"): string 
 /**
  * Delete a workspace directory (safeguarded against deleting "default")
  */
-export function deleteWorkspace(name: string, baseDir: string = "logs"): boolean {
+export function deleteWorkspace(name: string, baseDir: string = "logs", userNumber: string = "00000"): boolean {
   const safeName = (name || "").replace(/[^\w\d\-_ ]/g, "").trim();
   if (!safeName || safeName === "default") {
     throw new Error("Cannot delete default workspace");
   }
-  const wsDir = path.resolve(process.cwd(), baseDir, safeName);
+  const userRoot = getUserLogsRoot(userNumber, baseDir);
+  const wsDir = path.resolve(userRoot, safeName);
   if (fs.existsSync(wsDir)) {
     fs.rmSync(wsDir, { recursive: true, force: true });
-    console.log(`[Workspace] 🗑️ Deleted workspace folder: logs/${safeName}`);
+    console.log(`[Workspace] 🗑️ Deleted workspace folder: logs/${userNumber}/${safeName}`);
     return true;
   }
   return false;
@@ -157,7 +190,7 @@ export function deleteWorkspace(name: string, baseDir: string = "logs"): boolean
 /**
  * Rename a workspace directory
  */
-export function renameWorkspace(oldName: string, newName: string, baseDir: string = "logs"): string {
+export function renameWorkspace(oldName: string, newName: string, baseDir: string = "logs", userNumber: string = "00000"): string {
   const safeOld = (oldName || "").replace(/[^\w\d\-_ ]/g, "").trim();
   const safeNew = (newName || "").replace(/[^\w\d\-_ ]/g, "").trim();
   if (!safeOld || !safeNew) {
@@ -169,8 +202,9 @@ export function renameWorkspace(oldName: string, newName: string, baseDir: strin
   if (safeOld === safeNew) {
     return safeNew;
   }
-  const oldDir = path.resolve(process.cwd(), baseDir, safeOld);
-  const newDir = path.resolve(process.cwd(), baseDir, safeNew);
+  const userRoot = getUserLogsRoot(userNumber, baseDir);
+  const oldDir = path.resolve(userRoot, safeOld);
+  const newDir = path.resolve(userRoot, safeNew);
   if (!fs.existsSync(oldDir)) {
     throw new Error(`Workspace "${safeOld}" does not exist`);
   }
@@ -178,17 +212,18 @@ export function renameWorkspace(oldName: string, newName: string, baseDir: strin
     throw new Error(`Workspace "${safeNew}" already exists`);
   }
   fs.renameSync(oldDir, newDir);
-  console.log(`[Workspace] 🏷️ Renamed workspace folder: logs/${safeOld} -> logs/${safeNew}`);
+  console.log(`[Workspace] 🏷️ Renamed workspace folder: logs/${userNumber}/${safeOld} -> logs/${userNumber}/${safeNew}`);
   return safeNew;
 }
 
 /**
  * Saves or appends a completed conversation turn into a session markdown log file within a workspace
  */
-export function saveConversationLog(session: ConversationSession, baseDir: string = "logs"): string {
-  ensureWorkspaceMigration(baseDir);
+export function saveConversationLog(session: ConversationSession, baseDir: string = "logs", userNumber: string = "00000"): string {
+  const finalUserNum = session.userNumber || userNumber || "00000";
+  ensureWorkspaceMigration(baseDir, finalUserNum);
   const workspaceName = session.workspace || "default";
-  const logsDir = getWorkspaceDir(workspaceName, baseDir);
+  const logsDir = getWorkspaceDir(workspaceName, baseDir, finalUserNum);
 
   const filename = session.sessionFile && session.sessionFile.endsWith(".md")
     ? path.basename(session.sessionFile)
@@ -206,6 +241,7 @@ export function saveConversationLog(session: ConversationSession, baseDir: strin
       `# Conversation Log: ${filename.replace(".md", "")}`,
       "",
       "## Metadata",
+      `- **User**: \`${finalUserNum}\``,
       `- **Workspace**: \`${workspaceName}\``,
       `- **Date / Time**: ${session.startTime.toISOString()} (Local: ${session.startTime.toLocaleString()})`,
       `- **Model**: \`${session.model}\``,
@@ -253,7 +289,7 @@ export function saveConversationLog(session: ConversationSession, baseDir: strin
     mdContent.push("");
 
     fs.writeFileSync(filePath, mdContent.join("\n"), "utf-8");
-    console.log(`[Conversation Logger] 📁 Created new conversation session: logs/${workspaceName}/${filename}`);
+    console.log(`[Conversation Logger] 📁 Created new conversation session: logs/${finalUserNum}/${workspaceName}/${filename}`);
   } else {
     // Existing session: append Turn N to the same file
     let existingContent = fs.readFileSync(filePath, "utf-8");
@@ -311,7 +347,7 @@ export function saveConversationLog(session: ConversationSession, baseDir: strin
     appendParts.push("");
 
     fs.writeFileSync(filePath, existingContent + appendParts.join("\n"), "utf-8");
-    console.log(`[Conversation Logger] ➕ Appended Turn ${turnNumber} to: logs/${workspaceName}/${filename}`);
+    console.log(`[Conversation Logger] ➕ Appended Turn ${turnNumber} to: logs/${finalUserNum}/${workspaceName}/${filename}`);
   }
 
   return filename;
@@ -338,9 +374,9 @@ export interface ConversationSummary {
 /**
  * List all saved conversation markdown files in a workspace ordered by newest first
  */
-export function listConversationLogs(workspace: string = "default", baseDir: string = "logs"): ConversationSummary[] {
-  ensureWorkspaceMigration(baseDir);
-  const logsDir = getWorkspaceDir(workspace, baseDir);
+export function listConversationLogs(workspace: string = "default", baseDir: string = "logs", userNumber: string = "00000"): ConversationSummary[] {
+  ensureWorkspaceMigration(baseDir, userNumber);
+  const logsDir = getWorkspaceDir(workspace, baseDir, userNumber);
 
   const files = fs
     .readdirSync(logsDir)
@@ -372,7 +408,6 @@ export function listConversationLogs(workspace: string = "default", baseDir: str
       }
 
       // Extract Cloned From metadata if session was branched
-      // e.g. `- **Cloned From**: \`2026-09-04_10-08-10.md\` (Workspace: default, Turn 1, Mode: up_to)`
       let clonedFrom: ConversationSummary["clonedFrom"] = undefined;
       const cloneMatch = content.match(/- \*\*Cloned From\*\*: `([^`]+)`(?:\s*\((.*?)\))?/);
       if (cloneMatch) {
@@ -416,10 +451,10 @@ export function listConversationLogs(workspace: string = "default", baseDir: str
 /**
  * Parses a saved conversation markdown file back into structured multi-turn messages & tool calls
  */
-export function parseConversationLog(filename: string, workspace: string = "default", baseDir: string = "logs") {
-  ensureWorkspaceMigration(baseDir);
+export function parseConversationLog(filename: string, workspace: string = "default", baseDir: string = "logs", userNumber: string = "00000") {
+  ensureWorkspaceMigration(baseDir, userNumber);
   const safeFilename = path.basename(filename);
-  const fullPath = path.join(getWorkspaceDir(workspace, baseDir), safeFilename);
+  const fullPath = path.join(getWorkspaceDir(workspace, baseDir, userNumber), safeFilename);
   if (!fs.existsSync(fullPath)) {
     throw new Error(`Log file "${safeFilename}" does not exist in workspace "${workspace}".`);
   }
@@ -521,10 +556,16 @@ export function parseConversationLog(filename: string, workspace: string = "defa
 /**
  * Renames / sets a custom title for a conversation log file
  */
-export function renameConversationLog(filename: string, newTitle: string, workspace: string = "default", baseDir: string = "logs"): boolean {
-  ensureWorkspaceMigration(baseDir);
+export function renameConversationLog(
+  filename: string,
+  newTitle: string,
+  workspace: string = "default",
+  baseDir: string = "logs",
+  userNumber: string = "00000"
+): boolean {
+  ensureWorkspaceMigration(baseDir, userNumber);
   const safeFilename = path.basename(filename);
-  const fullPath = path.join(getWorkspaceDir(workspace, baseDir), safeFilename);
+  const fullPath = path.join(getWorkspaceDir(workspace, baseDir, userNumber), safeFilename);
   if (!fs.existsSync(fullPath)) return false;
 
   const content = fs.readFileSync(fullPath, "utf-8");
@@ -538,12 +579,12 @@ export function renameConversationLog(filename: string, newTitle: string, worksp
   }
 
   fs.writeFileSync(fullPath, updatedContent, "utf-8");
-  console.log(`[Conversation Logger] 🏷️ Updated session title to: "${sanitizedTitle}" for logs/${workspace}/${safeFilename}`);
+  console.log(`[Conversation Logger] 🏷️ Updated session title to: "${sanitizedTitle}" for logs/${userNumber}/${workspace}/${safeFilename}`);
   return true;
 }
 
 /**
- * Clones / forks a specific turn (or all turns up to turnIndex) into a new independent session log file
+ * Clones / forks a specific turn into a new independent session log file
  */
 export function cloneConversationTurn(
   filename: string,
@@ -552,14 +593,15 @@ export function cloneConversationTurn(
   workspace: string = "default",
   targetWorkspace?: string,
   customDocHashes?: string[],
-  baseDir: string = "logs"
+  baseDir: string = "logs",
+  userNumber: string = "00000"
 ): { newFilename: string; title: string; workspace: string; attachedDocHashes: string[] } {
-  ensureWorkspaceMigration(baseDir);
-  const parsed = parseConversationLog(filename, workspace, baseDir);
+  ensureWorkspaceMigration(baseDir, userNumber);
+  const parsed = parseConversationLog(filename, workspace, baseDir, userNumber);
   const now = new Date();
   const newFilename = `${formatDateForFilename(now)}.md`;
   const destWorkspace = targetWorkspace || workspace || "default";
-  const fullPath = path.join(getWorkspaceDir(destWorkspace, baseDir), newFilename);
+  const fullPath = path.join(getWorkspaceDir(destWorkspace, baseDir, userNumber), newFilename);
 
   let targetMessages = parsed.messages;
   if (mode === "single") {
@@ -576,14 +618,13 @@ export function cloneConversationTurn(
   const baseTitle = firstUserMsg ? firstUserMsg.content.slice(0, 40) : "Cloned Conversation";
   const newTitle = `[Fork T#${turnIndex}] ${baseTitle}`;
 
-  // If customDocHashes is provided, use it; otherwise default to parent's attachedDocHashes
   const finalDocHashes = Array.isArray(customDocHashes) ? customDocHashes : (parsed.attachedDocHashes || []);
 
-  // Build new Markdown session structure
   const mdParts: string[] = [
     `# Conversation Log: ${newFilename.replace(".md", "")}`,
     "",
     "## Metadata",
+    `- **User**: \`${userNumber}\``,
     `- **Workspace**: \`${destWorkspace}\``,
     `- **Title**: \`${newTitle}\``,
     `- **Date / Time**: ${now.toISOString()} (Local: ${now.toLocaleString()})`,
@@ -649,7 +690,7 @@ export function cloneConversationTurn(
   });
 
   fs.writeFileSync(fullPath, mdParts.join("\n"), "utf-8");
-  console.log(`[Conversation Logger] 🌿 Cloned Turn ${turnIndex} from "${filename}" to logs/${destWorkspace}/${newFilename}`);
+  console.log(`[Conversation Logger] 🌿 Cloned Turn ${turnIndex} from "${filename}" to logs/${userNumber}/${destWorkspace}/${newFilename}`);
 
   return { newFilename, title: newTitle, workspace: destWorkspace, attachedDocHashes: finalDocHashes };
 }
@@ -657,17 +698,17 @@ export function cloneConversationTurn(
 /**
  * Delete a saved conversation log file safely
  */
-export function deleteConversationLog(filename: string, workspace: string = "default", baseDir: string = "logs"): boolean {
-  ensureWorkspaceMigration(baseDir);
+export function deleteConversationLog(filename: string, workspace: string = "default", baseDir: string = "logs", userNumber: string = "00000"): boolean {
+  ensureWorkspaceMigration(baseDir, userNumber);
   const safeFilename = path.basename(filename);
   if (!safeFilename.endsWith(".md") || safeFilename === "README.md") {
     throw new Error("Invalid log file specified.");
   }
 
-  const fullPath = path.join(getWorkspaceDir(workspace, baseDir), safeFilename);
+  const fullPath = path.join(getWorkspaceDir(workspace, baseDir, userNumber), safeFilename);
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
-    console.log(`[Conversation Logger] 🗑️ Deleted conversation log: logs/${workspace}/${safeFilename}`);
+    console.log(`[Conversation Logger] 🗑️ Deleted conversation log: logs/${userNumber}/${workspace}/${safeFilename}`);
     return true;
   }
   return false;

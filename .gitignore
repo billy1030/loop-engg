@@ -5,4 +5,5 @@ dist
 *.log
 logs/
 storage/
+config/sessions.json
 

@@ -60,6 +60,7 @@ export const UploadDocModal: React.FC<UploadDocModalProps> = ({
       const res = await fetch("/api/documents/by-hashes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ hashes: activeDocHashes }),
       });
       const data = await res.json();
@@ -111,6 +112,7 @@ export const UploadDocModal: React.FC<UploadDocModalProps> = ({
         const res = await fetch("/api/documents/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             fileName: file.name,
             fileBase64: base64,

@@ -18,6 +18,8 @@ Welcome to the **Loop Engineering Chatbot Protocol** technical documentation. Th
 | [10. BigFix Enterprise Streamable-HTTP MCP Integration](./10-bigfix-enterprise-mcp-integration.md) | Enterprise BigFix remote HTTPS connection, SSE streamable-http protocol, Mcp-Session-Id management, 14 BigFix tools, and test prompts. |
 | [11. Standalone HTML Export Engine Specification](./11-html-export-engine.md) | Self-contained offline HTML export engine inspired by `sls`, client-side Blob download, theme toggle, Print/PDF, and dynamic Mermaid SVG rendering. |
 | [12. Workspace Architecture, Multi-Tier Sub-Conversations & Attachment Isolation](./12-workspace-and-conversation-tree-architecture.md) | Zero-database disk hierarchy, folder-based workspaces, recursive multi-tier fork tree, orphan fallback algorithm, and CAS attachment isolation. |
+| [13. Multi-User System, Folder Isolation & 2FA Architecture](./13-multi-user-system-and-2fa-architecture.md) | Enterprise multi-tenant isolation, Scrypt hashing, RFC 6238 TOTP 2FA, emergency recovery codes, and rate-limiting lockout. |
+| [14. Outlook-Style Interface & Visual Design Architecture](./14-outlook-interface-design-architecture.md) | Visual design tokens, layout hierarchy, native Segoe UI typography, SLS-style user dropdown popover, and inline editing data grids. |
 
 ---
 

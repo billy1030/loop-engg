@@ -21,10 +21,21 @@ import {
   Loader2,
   Trash2,
   Download,
+  Paperclip,
+  Edit2,
+  Check,
+  X,
+  GitFork,
+  Folder,
+  FolderPlus,
+  Brain,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
 import { AlertModal, type ModalAlertProps } from "./components/AlertModal";
+import { UploadDocModal } from "./components/UploadDocModal";
+import { SubConversationModal } from "./components/SubConversationModal";
+import { ThoughtBlock } from "./components/ThoughtBlock";
 
 interface ToolCallLog {
   id: string;
@@ -44,6 +55,8 @@ interface Message {
   iterations?: number;
   duration?: number;
   tokensPerSec?: number;
+  timestamp?: number;
+  turnIndex?: number;
 }
 
 interface ConfigState {
@@ -69,6 +82,11 @@ interface ConfigState {
   }[];
 }
 
+interface WorkspaceInfo {
+  name: string;
+  sessionCount: number;
+}
+
 export function App() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -86,14 +104,156 @@ export function App() {
   const [config, setConfig] = useState<ConfigState | null>(null);
   const [expandedTools, setExpandedTools] = useState<Record<string, boolean>>({});
   const [selectedToolDetail, setSelectedToolDetail] = useState<any | null>(null);
+  const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([]);
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>(() => {
+    return localStorage.getItem("active_workspace") || "default";
+  });
+  const [isCreatingWs, setIsCreatingWs] = useState<boolean>(false);
+  const [newWsName, setNewWsName] = useState<string>("");
+  const [isRenamingWs, setIsRenamingWs] = useState<boolean>(false);
+  const [renameWsInput, setRenameWsInput] = useState<string>("");
   const [savedSessions, setSavedSessions] = useState<any[]>([]);
   const [activeSessionFile, setActiveSessionFile] = useState<string | null>(null);
   const [showModelPanel, setShowModelPanel] = useState<boolean>(false);
   const [showPastSessions, setShowPastSessions] = useState<boolean>(true);
   const [mcpViewMode, setMcpViewMode] = useState<"full" | "minimize" | "hide">("full");
+  const [thinkingViewMode, setThinkingViewMode] = useState<"full" | "minimize" | "hide">("full");
   const [mcpJsonText, setMcpJsonText] = useState<string>("");
   const [mcpJsonError, setMcpJsonError] = useState<string | null>(null);
+  const [showDocModal, setShowDocModal] = useState<boolean>(false);
+  const [activeDocHashes, setActiveDocHashes] = useState<string[]>([]);
   const [alertPrompt, setAlertPrompt] = useState<Omit<ModalAlertProps, "onClose"> | null>(null);
+  const [editingSessionFile, setEditingSessionFile] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>("");
+  const [subConvModalFile, setSubConvModalFile] = useState<string | null>(null);
+
+  const fetchWorkspaces = async () => {
+    try {
+      const res = await fetch("/api/workspaces");
+      const data = await res.json();
+      if (data.workspaces) {
+        setWorkspaces(data.workspaces);
+      }
+    } catch (err) {
+      console.error("Failed to fetch workspaces:", err);
+    }
+  };
+
+  const handleCreateWorkspace = async () => {
+    const clean = newWsName.trim();
+    if (!clean) return;
+    try {
+      const res = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: clean }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setNewWsName("");
+        setIsCreatingWs(false);
+        await fetchWorkspaces();
+        switchWorkspace(data.name);
+        showAlert(`Workspace "${data.name}" created successfully!`, "success");
+      } else {
+        showAlert(`Failed to create workspace: ${data.error || "Unknown error"}`, "error");
+      }
+    } catch (err: any) {
+      showAlert(`Error creating workspace: ${err.message || err}`, "error");
+    }
+  };
+
+  const handleRenameWorkspace = async () => {
+    const clean = renameWsInput.trim();
+    if (!clean || clean === currentWorkspace) {
+      setIsRenamingWs(false);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/workspaces/${encodeURIComponent(currentWorkspace)}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newName: clean }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setIsRenamingWs(false);
+        await fetchWorkspaces();
+        switchWorkspace(data.name);
+        showAlert(`Workspace renamed to "${data.name}"!`, "success");
+      } else {
+        showAlert(`Failed to rename workspace: ${data.error || "Unknown error"}`, "error");
+      }
+    } catch (err: any) {
+      showAlert(`Error renaming workspace: ${err.message || err}`, "error");
+    }
+  };
+
+  const switchWorkspace = (wsName: string) => {
+    setCurrentWorkspace(wsName);
+    localStorage.setItem("active_workspace", wsName);
+    startNewChat();
+    fetchLogs(wsName);
+  };
+
+  const handleDeleteWorkspace = async (e: React.MouseEvent, wsName: string) => {
+    e.stopPropagation();
+    if (wsName === "default") {
+      showAlert("The default workspace cannot be deleted.", "warning");
+      return;
+    }
+    showConfirm(
+      `Are you sure you want to delete workspace "${wsName}" and all its saved sessions?`,
+      async () => {
+        try {
+          const res = await fetch(`/api/workspaces/${encodeURIComponent(wsName)}`, {
+            method: "DELETE",
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            showAlert(`Workspace "${wsName}" deleted.`, "success");
+            await fetchWorkspaces();
+            if (currentWorkspace === wsName) {
+              switchWorkspace("default");
+            }
+          } else {
+            showAlert(`Failed to delete workspace: ${data.error}`, "error");
+          }
+        } catch (err: any) {
+          showAlert(`Error deleting workspace: ${err.message || err}`, "error");
+        }
+      },
+      "Delete Workspace"
+    );
+  };
+
+  const handleRenameSession = async (filename: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    try {
+      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newTitle: newTitle.trim(), workspace: currentWorkspace }),
+      });
+      if (res.ok) {
+        await fetchLogs();
+        setEditingSessionFile(null);
+      } else {
+        const data = await res.json();
+        showAlert(`Rename failed: ${data.error || "Unknown error"}`, "error");
+      }
+    } catch (err: any) {
+      showAlert(`Rename failed: ${err.message || err}`, "error");
+    }
+  };
+
+  const addDocHash = (hash: string) => {
+    setActiveDocHashes((prev) => (prev.includes(hash) ? prev : [...prev, hash]));
+  };
+
+  const removeDocHash = (hash: string) => {
+    setActiveDocHashes((prev) => prev.filter((h) => h !== hash));
+  };
 
   const showAlert = (message: string, type: "success" | "error" | "warning" | "info" = "info", title?: string) => {
     setAlertPrompt({
@@ -122,15 +282,17 @@ export function App() {
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch initial configuration and active MCP tools
+  // Fetch initial configuration, workspaces, and active MCP tools
   useEffect(() => {
     fetchConfig();
-    fetchLogs();
+    fetchWorkspaces();
+    fetchLogs(currentWorkspace);
   }, []);
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (wsName?: string) => {
+    const ws = wsName || currentWorkspace;
     try {
-      const res = await fetch("/api/logs");
+      const res = await fetch(`/api/logs?workspace=${encodeURIComponent(ws)}`);
       const data = await res.json();
       if (data.logs) {
         setSavedSessions(data.logs);
@@ -152,16 +314,21 @@ export function App() {
     setActiveSessionFile(null);
     setInputPrompt("");
     setCurrentStep(null);
+    // Reset attachments strictly for new session
+    setActiveDocHashes([]);
   };
 
-  const loadSession = async (filename: string) => {
+  const loadSession = async (filename: string, wsName?: string) => {
+    const ws = wsName || currentWorkspace;
     try {
       setLoading(true);
-      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`);
+      const res = await fetch(`/api/logs/${encodeURIComponent(filename)}?workspace=${encodeURIComponent(ws)}`);
       const data = await res.json();
       if (data.messages) {
         setMessages(data.messages);
         setActiveSessionFile(filename);
+        // Strictly restore only the attachments associated with this specific loaded session
+        setActiveDocHashes(data.attachedDocHashes || []);
       }
     } catch (err: any) {
       showAlert(`Failed to load session:\n${err.message || err}`, "error", "Load Session Failed");
@@ -173,17 +340,19 @@ export function App() {
   const deleteSession = async (e: React.MouseEvent, filename: string) => {
     e.stopPropagation(); // prevent triggering loadSession
     showConfirm(
-      `確定要刪除以下歷史會話記錄嗎？\n檔名: ${filename}\n\n此操作將從磁碟永久移除，無法復原！`,
+      `確定要刪除以下歷史會話記錄嗎？\n工作區: ${currentWorkspace}\n檔名: ${filename}\n\n此操作將從磁碟永久移除，無法復原！`,
       async () => {
         try {
-          const res = await fetch(`/api/logs/${encodeURIComponent(filename)}`, {
-            method: "DELETE",
-          });
+          const res = await fetch(
+            `/api/logs/${encodeURIComponent(filename)}?workspace=${encodeURIComponent(currentWorkspace)}`,
+            { method: "DELETE" }
+          );
           if (res.ok) {
             if (activeSessionFile === filename) {
               startNewChat();
             }
-            await fetchLogs();
+            await fetchLogs(currentWorkspace);
+            await fetchWorkspaces();
             showAlert("會話記錄已成功刪除。", "success", "刪除成功");
           } else {
             const data = await res.json();
@@ -261,16 +430,22 @@ export function App() {
     const userMessageId = "user-" + Date.now();
     const assistantMessageId = "asst-" + Date.now();
     const query = inputPrompt.trim();
+    const now = Date.now();
+
+    // Calculate next turn index based on existing assistant responses
+    const nextTurn = messages.filter((m) => m.role === "assistant" && m.id !== "welcome").length + 1;
 
     setMessages((prev) => [
       ...prev,
-      { id: userMessageId, role: "user", content: query },
+      { id: userMessageId, role: "user", content: query, timestamp: now, turnIndex: nextTurn },
       {
         id: assistantMessageId,
         role: "assistant",
         content: "",
         toolCalls: [],
         isStreaming: true,
+        timestamp: now,
+        turnIndex: nextTurn,
       },
     ]);
 
@@ -292,7 +467,13 @@ export function App() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: query, history }),
+        body: JSON.stringify({
+          message: query,
+          history,
+          attachedDocHashes: activeDocHashes,
+          sessionFile: activeSessionFile,
+          workspace: currentWorkspace,
+        }),
       });
 
       if (!response.body) throw new Error("No response body from server");
@@ -364,6 +545,10 @@ export function App() {
             const estTokens = Math.round((data.answer?.length || 0) / 3.5);
             const tokensPerSec = Math.round(estTokens / totalDurationSec);
 
+            if (data.sessionFile) {
+              setActiveSessionFile(data.sessionFile);
+            }
+
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMessageId
@@ -378,7 +563,8 @@ export function App() {
                   : m
               )
             );
-            fetchLogs(); // refresh saved logs list
+            fetchLogs(currentWorkspace); // refresh saved logs list
+            fetchWorkspaces();
           }
         }
       }
@@ -402,15 +588,15 @@ export function App() {
 
   return (
     <div style={{ display: "flex", width: "100vw", height: "100vh", background: "var(--bg-primary)" }}>
-      {/* Sidebar Navigation */}
+      {/* Sidebar Navigation (Widened to accommodate multi-tier tree depth timestamps) */}
       <div
         style={{
-          width: 320,
+          width: 345,
           background: "var(--bg-secondary)",
           borderRight: "1px solid var(--border-color)",
           display: "flex",
           flexDirection: "column",
-          padding: "20px 16px",
+          padding: "20px 14px",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -445,6 +631,243 @@ export function App() {
               </span>
               <span style={{ fontSize: 11, color: "var(--text-muted)" }}>MCP Protocol</span>
             </div>
+          </div>
+        </div>
+
+        {/* Workspace Selector & Folder Management Card */}
+        <div
+          style={{
+            background: "var(--bg-card)",
+            borderRadius: 8,
+            border: "1px solid var(--border-color)",
+            padding: "10px 12px",
+            marginBottom: 12,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Folder size={14} color="var(--accent)" />
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-main)" }}>
+                Workspace
+              </span>
+            </div>
+            <button
+              onClick={() => setIsCreatingWs(!isCreatingWs)}
+              title="Create new Workspace folder"
+              style={{
+                background: isCreatingWs ? "rgba(37, 99, 235, 0.15)" : "transparent",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-main)",
+                borderRadius: 4,
+                padding: "2px 6px",
+                cursor: "pointer",
+                fontSize: 11,
+                fontWeight: 600,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <FolderPlus size={12} color="var(--accent)" /> New
+            </button>
+          </div>
+
+          {/* New Workspace Input Field */}
+          {isCreatingWs && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="text"
+                placeholder="Folder name (e.g. BigFix-Audit)"
+                value={newWsName}
+                autoFocus
+                onChange={(e) => setNewWsName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCreateWorkspace();
+                  else if (e.key === "Escape") setIsCreatingWs(false);
+                }}
+                style={{
+                  flex: 1,
+                  fontSize: 11,
+                  padding: "4px 8px",
+                  borderRadius: 4,
+                  border: "1px solid var(--accent)",
+                  background: "var(--bg-primary)",
+                  color: "var(--text-main)",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleCreateWorkspace}
+                title="Create"
+                style={{
+                  background: "rgba(16, 185, 129, 0.15)",
+                  border: "1px solid rgba(16, 185, 129, 0.4)",
+                  color: "#10b981",
+                  borderRadius: 4,
+                  padding: "4px 6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <Check size={12} />
+              </button>
+              <button
+                onClick={() => setIsCreatingWs(false)}
+                title="Cancel"
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-muted)",
+                  borderRadius: 4,
+                  padding: "4px 6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          {/* Rename Workspace Input Field */}
+          {isRenamingWs && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="text"
+                placeholder="New workspace name"
+                value={renameWsInput}
+                autoFocus
+                onChange={(e) => setRenameWsInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameWorkspace();
+                  else if (e.key === "Escape") setIsRenamingWs(false);
+                }}
+                style={{
+                  flex: 1,
+                  fontSize: 11,
+                  padding: "4px 8px",
+                  borderRadius: 4,
+                  border: "1px solid var(--accent)",
+                  background: "var(--bg-primary)",
+                  color: "var(--text-main)",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={handleRenameWorkspace}
+                title="Save"
+                style={{
+                  background: "rgba(16, 185, 129, 0.15)",
+                  border: "1px solid rgba(16, 185, 129, 0.4)",
+                  color: "#10b981",
+                  borderRadius: 4,
+                  padding: "4px 6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <Check size={12} />
+              </button>
+              <button
+                onClick={() => setIsRenamingWs(false)}
+                title="Cancel"
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-muted)",
+                  borderRadius: 4,
+                  padding: "4px 6px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
+
+          {/* Workspace Dropdown Select */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <select
+              value={currentWorkspace}
+              onChange={(e) => switchWorkspace(e.target.value)}
+              style={{
+                flex: 1,
+                fontSize: 11,
+                fontWeight: 600,
+                padding: "6px 8px",
+                borderRadius: 6,
+                border: "1px solid var(--border-color)",
+                background: "var(--bg-secondary)",
+                color: "var(--text-main)",
+                outline: "none",
+                cursor: "pointer",
+              }}
+            >
+              {workspaces.map((ws) => (
+                <option key={ws.name} value={ws.name}>
+                  📁 {ws.name} ({ws.sessionCount} sessions)
+                </option>
+              ))}
+            </select>
+
+            {currentWorkspace !== "default" && (
+              <>
+                {/* Rename Workspace Icon Button */}
+                <button
+                  onClick={() => {
+                    setIsRenamingWs(!isRenamingWs);
+                    setRenameWsInput(currentWorkspace);
+                    setIsCreatingWs(false);
+                  }}
+                  title="Rename current workspace"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    borderRadius: 4,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                >
+                  <Edit2 size={13} />
+                </button>
+
+                {/* Delete Workspace Icon Button */}
+                <button
+                  onClick={(e) => handleDeleteWorkspace(e, currentWorkspace)}
+                  title="Delete current workspace folder"
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    padding: "4px",
+                    borderRadius: 4,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -554,7 +977,7 @@ export function App() {
             </div>
           </div>
 
-          {/* Collapsible Sessions Body */}
+          {/* Collapsible Sessions Body (Tree View Hierarchy) */}
           {showPastSessions && (
             <div
               style={{
@@ -570,84 +993,332 @@ export function App() {
                 <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", padding: "4px 0" }}>
                   No past logs yet.
                 </div>
-              ) : (
-                savedSessions.map((session) => {
+              ) : (() => {
+                // Build Tree: Identify Root Sessions vs Sub-Conversations (Forks)
+                const sessionMap = new Map<string, any>();
+                const childrenMap = new Map<string, any[]>();
+                const rootSessions: any[] = [];
+
+                savedSessions.forEach((s) => {
+                  sessionMap.set(s.filename, s);
+                });
+
+                savedSessions.forEach((s) => {
+                  const parent = s.clonedFrom?.parentFilename;
+                  if (parent && sessionMap.has(parent)) {
+                    if (!childrenMap.has(parent)) {
+                      childrenMap.set(parent, []);
+                    }
+                    childrenMap.get(parent)!.push(s);
+                  } else {
+                    rootSessions.push(s);
+                  }
+                });
+
+                // Render session card with multi-level depth support (Level 0: Root, Level 1: Sub, Level 2: Sub-sub/3rd level, etc.)
+                const renderSessionCard = (session: any, depth: number = 0) => {
                   const isActive = activeSessionFile === session.filename;
+                  const children = childrenMap.get(session.filename) || [];
+                  const hasChildren = children.length > 0;
+                  const isChild = depth > 0;
+
+                  // Branch colors according to depth level
+                  const branchColors = [
+                    "var(--accent)", // Root
+                    "rgba(168, 85, 247, 0.5)", // Level 1 (Purple)
+                    "rgba(236, 72, 153, 0.5)", // Level 2 (Pink)
+                    "rgba(20, 184, 166, 0.5)", // Level 3+ (Teal)
+                  ];
+                  const branchBorderColor = branchColors[Math.min(depth, branchColors.length - 1)];
+
                   return (
-                    <div
-                      key={session.filename}
-                      onClick={() => loadSession(session.filename)}
-                      title={`Click to load: ${session.filename}`}
-                      style={{
-                        padding: "8px 10px",
-                        borderRadius: 6,
-                        fontSize: 11,
-                        cursor: "pointer",
-                        background: isActive ? "rgba(37, 99, 235, 0.12)" : "var(--bg-secondary)",
-                        border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
-                        transition: "all 0.15s ease",
-                        position: "relative",
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
-                      }}
-                    >
-                      {/* First Line: Title (Prompt Preview) & Delete Button */}
-                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 6 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
-                          <MessageSquare size={12} color="var(--accent)" style={{ flexShrink: 0 }} />
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              fontSize: 12,
-                            }}
-                          >
-                            {session.preview || "Untitled Conversation"}
-                          </span>
+                    <div key={session.filename} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <div
+                        onClick={() => loadSession(session.filename)}
+                        title={`Click to load: ${session.filename}${depth > 0 ? ` (Level ${depth + 1})` : ""}`}
+                        style={{
+                          padding: isChild ? "5px 7px" : "7px 9px",
+                          borderRadius: 6,
+                          fontSize: 11,
+                          cursor: "pointer",
+                          background: isActive
+                            ? "rgba(37, 99, 235, 0.14)"
+                            : isChild
+                            ? "var(--bg-primary)"
+                            : "var(--bg-secondary)",
+                          border: isActive ? "1px solid var(--accent)" : "1px solid var(--border-color)",
+                          transition: "all 0.15s ease",
+                          position: "relative",
+                          boxShadow: isActive ? "0 0 0 1px var(--accent)" : "none",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isActive) e.currentTarget.style.borderColor = "var(--text-muted)";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isActive) e.currentTarget.style.borderColor = "var(--border-color)";
+                        }}
+                      >
+                        {/* First Line: Title Only (Full Width) */}
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4 }}>
+                          {editingSessionFile === session.filename ? (
+                            <div
+                              style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="text"
+                                value={editingTitle}
+                                autoFocus
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleRenameSession(session.filename, editingTitle);
+                                  } else if (e.key === "Escape") {
+                                    setEditingSessionFile(null);
+                                  }
+                                }}
+                                style={{
+                                  flex: 1,
+                                  fontSize: 11,
+                                  padding: "2px 6px",
+                                  borderRadius: 4,
+                                  border: "1px solid var(--accent)",
+                                  background: "var(--bg-card)",
+                                  color: "var(--text-main)",
+                                  outline: "none",
+                                }}
+                              />
+                              <button
+                                onClick={() => handleRenameSession(session.filename, editingTitle)}
+                                title="Save Title"
+                                style={{
+                                  background: "rgba(16, 185, 129, 0.15)",
+                                  border: "1px solid rgba(16, 185, 129, 0.4)",
+                                  color: "#10b981",
+                                  borderRadius: 4,
+                                  padding: "2px 4px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <Check size={12} />
+                              </button>
+                              <button
+                                onClick={() => setEditingSessionFile(null)}
+                                title="Cancel"
+                                style={{
+                                  background: "transparent",
+                                  border: "1px solid var(--border-color)",
+                                  color: "var(--text-muted)",
+                                  borderRadius: 4,
+                                  padding: "2px 4px",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: "var(--text-main)", flex: 1, minWidth: 0 }}>
+                              {depth === 0 ? (
+                                <MessageSquare size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
+                              ) : depth === 1 ? (
+                                <GitFork size={13} color="#a855f7" style={{ flexShrink: 0 }} />
+                              ) : (
+                                <GitFork size={13} color="#ec4899" style={{ flexShrink: 0 }} />
+                              )}
+                              <span
+                                style={{
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                  fontSize: isChild ? 11.5 : 12.5,
+                                  letterSpacing: "0.2px",
+                                }}
+                              >
+                                {session.customTitle || session.preview || "Untitled Conversation"}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        {/* Delete Icon Button */}
-                        <button
-                          onClick={(e) => deleteSession(e, session.filename)}
-                          title="Delete this session"
+                        {/* Second Line: Metadata (Timestamp on Far Left, Badges & Action Icons on Far Right) */}
+                        <div
                           style={{
-                            background: "transparent",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "2px 4px",
-                            borderRadius: 4,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            fontSize: 9.5,
                             color: "var(--text-muted)",
-                            transition: "color 0.15s, background-color 0.15s",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = "#ef4444";
-                            e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = "var(--text-muted)";
-                            e.currentTarget.style.backgroundColor = "transparent";
+                            marginTop: 4,
+                            paddingLeft: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: 2,
                           }}
                         >
-                          <Trash2 size={13} />
-                        </button>
+                          {/* Left Side: Timestamp */}
+                          <div style={{ display: "flex", alignItems: "center", minWidth: 0, overflow: "hidden" }}>
+                            <span
+                              style={{
+                                fontFamily: "ui-monospace, monospace",
+                                fontSize: 9.5,
+                                whiteSpace: "nowrap",
+                                color: "var(--text-muted)",
+                                letterSpacing: "-0.2px",
+                              }}
+                            >
+                              {session.filename.replace(".md", "")}
+                            </span>
+                          </div>
+
+                          {/* Right Side: Attachment Badge & Action Icons */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                            {/* Attachment Badge if session has documents */}
+                            {session.attachedDocCount && session.attachedDocCount > 0 ? (
+                              <span
+                                title={`${session.attachedDocCount} attached document(s)`}
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 2,
+                                  padding: "1px 4px",
+                                  borderRadius: 4,
+                                  fontSize: 9,
+                                  fontWeight: 600,
+                                  backgroundColor: "rgba(37, 99, 235, 0.12)",
+                                  color: "var(--accent)",
+                                  border: "1px solid rgba(37, 99, 235, 0.25)",
+                                }}
+                              >
+                                <Paperclip size={9.5} />
+                                {session.attachedDocCount}
+                              </span>
+                            ) : null}
+
+                            {/* Action Icon Buttons Grouped on the Right */}
+                            {editingSessionFile !== session.filename && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                {/* Sub-Conversation Inspector / Fork Icon Button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSubConvModalFile(session.filename);
+                                  }}
+                                  title="Inspect Sub-Conversations & Fork/Clone"
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    padding: "2px 3px",
+                                    borderRadius: 4,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "var(--text-muted)",
+                                    transition: "color 0.15s, background-color 0.15s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = "var(--accent)";
+                                    e.currentTarget.style.backgroundColor = "rgba(37, 99, 235, 0.1)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = "var(--text-muted)";
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}
+                                >
+                                  <GitFork size={11.5} />
+                                </button>
+
+                                {/* Edit / Rename Icon Button */}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSessionFile(session.filename);
+                                    setEditingTitle(session.customTitle || session.preview || "");
+                                  }}
+                                  title="Rename this session"
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    padding: "2px 3px",
+                                    borderRadius: 4,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "var(--text-muted)",
+                                    transition: "color 0.15s, background-color 0.15s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = "var(--accent)";
+                                    e.currentTarget.style.backgroundColor = "rgba(37, 99, 235, 0.1)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = "var(--text-muted)";
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}
+                                >
+                                  <Edit2 size={11.5} />
+                                </button>
+
+                                {/* Delete Icon Button */}
+                                <button
+                                  onClick={(e) => deleteSession(e, session.filename)}
+                                  title="Delete this session"
+                                  style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    padding: "2px 3px",
+                                    borderRadius: 4,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "var(--text-muted)",
+                                    transition: "color 0.15s, background-color 0.15s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = "#ef4444";
+                                    e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = "var(--text-muted)";
+                                    e.currentTarget.style.backgroundColor = "transparent";
+                                  }}
+                                >
+                                  <Trash2 size={11.5} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Second Line: Filename / Timestamp */}
-                      <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3, paddingLeft: 17, fontFamily: "monospace" }}>
-                        {session.filename.replace(".md", "")}
-                      </div>
+                      {/* Tree Branch Line & Sub-Conversations (Recursive for unlimited levels) */}
+                      {hasChildren && (
+                        <div
+                          style={{
+                            marginLeft: 8,
+                            paddingLeft: 6,
+                            borderLeft: `2px solid ${branchBorderColor}`,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                            marginTop: 2,
+                            marginBottom: 3,
+                          }}
+                        >
+                          {children.map((child) => renderSessionCard(child, depth + 1))}
+                        </div>
+                      )}
                     </div>
                   );
-                })
-              )}
+                };
+
+                return rootSessions.map((root) => renderSessionCard(root, 0));
+              })()}
             </div>
           )}
         </div>
@@ -677,15 +1348,26 @@ export function App() {
               cursor: "pointer",
               background: showModelPanel ? "var(--bg-secondary)" : "transparent",
               userSelect: "none",
+              gap: 8,
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Sparkles size={14} color="var(--accent)" />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-main)" }}>
-                Active Model {showModelPanel ? "" : `(${config?.llm.model || "Loading..."})`}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1 }}>
+              <Sparkles size={14} color="var(--accent)" style={{ flexShrink: 0 }} />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "var(--text-main)",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={config?.llm.model}
+              >
+                Model {showModelPanel ? "" : `(${config?.llm.model || "Loading..."})`}
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
               {!showModelPanel && (
                 <span
                   style={{
@@ -695,6 +1377,7 @@ export function App() {
                     background: "rgba(37, 99, 235, 0.1)",
                     color: "var(--accent)",
                     fontWeight: 600,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {config?.tools?.length || 0} Tools
@@ -870,8 +1553,98 @@ export function App() {
             )}
           </div>
 
-          {/* MCP Response View Mode Segmented Switch */}
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* MCP & Thinking Response View Mode Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {/* Thinking Response Segmented Switch */}
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                background: "var(--bg-card)",
+                padding: "3px",
+                borderRadius: 8,
+                border: "1px solid var(--border-color)",
+                gap: 2,
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", padding: "0 6px", display: "flex", alignItems: "center", gap: 4 }}>
+                <Brain size={12} color="#a855f7" /> Thinking:
+              </span>
+
+              {/* 1. Hide */}
+              <button
+                type="button"
+                onClick={() => setThinkingViewMode("hide")}
+                title="Hide model thinking (<think>) completely"
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: thinkingViewMode === "hide" ? 700 : 500,
+                  background: thinkingViewMode === "hide" ? "var(--bg-secondary)" : "transparent",
+                  color: thinkingViewMode === "hide" ? "var(--text-main)" : "var(--text-muted)",
+                  boxShadow: thinkingViewMode === "hide" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <EyeOff size={11} /> Hide
+              </button>
+
+              {/* 2. Minimize */}
+              <button
+                type="button"
+                onClick={() => setThinkingViewMode("minimize")}
+                title="Show thinking as a compact single-line preview snippet"
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: thinkingViewMode === "minimize" ? 700 : 500,
+                  background: thinkingViewMode === "minimize" ? "var(--bg-secondary)" : "transparent",
+                  color: thinkingViewMode === "minimize" ? "#a855f7" : "var(--text-muted)",
+                  boxShadow: thinkingViewMode === "minimize" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <ChevronDown size={11} /> Minimize
+              </button>
+
+              {/* 3. Full */}
+              <button
+                type="button"
+                onClick={() => setThinkingViewMode("full")}
+                title="Show full collapsible thinking block"
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  fontWeight: thinkingViewMode === "full" ? 700 : 500,
+                  background: thinkingViewMode === "full" ? "var(--bg-secondary)" : "transparent",
+                  color: thinkingViewMode === "full" ? "#a855f7" : "var(--text-muted)",
+                  boxShadow: thinkingViewMode === "full" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.15s ease",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <Eye size={11} /> Full
+              </button>
+            </div>
+
+            {/* MCP Response View Mode Segmented Switch */}
             <div
               style={{
                 display: "inline-flex",
@@ -893,7 +1666,7 @@ export function App() {
                 onClick={() => setMcpViewMode("hide")}
                 title="Hide all MCP tool calls completely"
                 style={{
-                  padding: "4px 10px",
+                  padding: "4px 8px",
                   borderRadius: 6,
                   border: "none",
                   cursor: "pointer",
@@ -905,10 +1678,10 @@ export function App() {
                   transition: "all 0.15s ease",
                   display: "flex",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 3,
                 }}
               >
-                <EyeOff size={12} /> Hide
+                <EyeOff size={11} /> Hide
               </button>
 
               {/* 2. Minimize */}
@@ -917,7 +1690,7 @@ export function App() {
                 onClick={() => setMcpViewMode("minimize")}
                 title="Show only tool summary pill / single line"
                 style={{
-                  padding: "4px 10px",
+                  padding: "4px 8px",
                   borderRadius: 6,
                   border: "none",
                   cursor: "pointer",
@@ -929,10 +1702,10 @@ export function App() {
                   transition: "all 0.15s ease",
                   display: "flex",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 3,
                 }}
               >
-                <ChevronDown size={12} /> Minimize
+                <ChevronDown size={11} /> Minimize
               </button>
 
               {/* 3. Full */}
@@ -941,7 +1714,7 @@ export function App() {
                 onClick={() => setMcpViewMode("full")}
                 title="Show full collapsible tool call cards with parameters and raw observations"
                 style={{
-                  padding: "4px 10px",
+                  padding: "4px 8px",
                   borderRadius: 6,
                   border: "none",
                   cursor: "pointer",
@@ -953,12 +1726,42 @@ export function App() {
                   transition: "all 0.15s ease",
                   display: "flex",
                   alignItems: "center",
-                  gap: 4,
+                  gap: 3,
                 }}
               >
-                <Eye size={12} /> Full
+                <Eye size={11} /> Full
               </button>
             </div>
+
+            {/* Sub-Conversation / Turns Inspector Button */}
+            {activeSessionFile && (
+              <button
+                onClick={() => setSubConvModalFile(activeSessionFile)}
+                title="Inspect Sub-Conversations / Fork a turn from current session"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  background: "rgba(37, 99, 235, 0.1)",
+                  border: "1px solid var(--accent)",
+                  color: "var(--accent)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(37, 99, 235, 0.18)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(37, 99, 235, 0.1)";
+                }}
+              >
+                <GitFork size={13} /> Sub Conversations
+              </button>
+            )}
 
             {/* Export Entire Conversation as HTML */}
             <button
@@ -1006,31 +1809,68 @@ export function App() {
 
         {/* Message Thread */}
         <div style={{ flex: 1, overflowY: "auto", padding: "24px 30px", display: "flex", flexDirection: "column", gap: 20 }}>
-          {messages.map((m) => (
-            <div
-              key={m.id}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: m.role === "user" ? "flex-end" : "flex-start",
-              }}
-            >
-              {m.role === "user" ? (
-                <div
-                  style={{
-                    background: "#1f6feb",
-                    color: "#fff",
-                    padding: "12px 18px",
-                    borderRadius: "16px 16px 2px 16px",
-                    maxWidth: "75%",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {m.content}
-                </div>
-              ) : (
-                <div style={{ maxWidth: "85%", width: "100%" }}>                  {/* Tool Invocations Section governed by mcpViewMode */}
+          {messages.map((m, mIdx) => {
+            const isUser = m.role === "user";
+            // Calculate a display turn index if not present
+            const turnNumber = m.turnIndex || Math.floor(mIdx / 2) + 1;
+            const timeString = m.timestamp
+              ? new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+              : "";
+
+            return (
+              <div
+                key={m.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: isUser ? "flex-end" : "flex-start",
+                }}
+              >
+                {/* Header Tag: Turn Number & Time */}
+                {m.id !== "welcome" && (
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 11,
+                      color: "var(--text-muted)",
+                      marginBottom: 5,
+                      padding: "0 4px",
+                    }}
+                  >
+                    <span
+                      style={{
+                        padding: "1px 7px",
+                        borderRadius: 10,
+                        background: isUser ? "rgba(31, 111, 235, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                        color: isUser ? "var(--accent)" : "#10b981",
+                        fontWeight: 700,
+                        fontSize: 10,
+                      }}
+                    >
+                      #{turnNumber} {isUser ? "User" : "Response"}
+                    </span>
+                    {timeString && <span>• {timeString}</span>}
+                  </div>
+                )}
+
+                {isUser ? (
+                  <div
+                    style={{
+                      background: "#1f6feb",
+                      color: "#fff",
+                      padding: "12px 18px",
+                      borderRadius: "16px 16px 2px 16px",
+                      maxWidth: "75%",
+                      fontSize: 14,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {m.content}
+                  </div>
+                ) : (
+                  <div style={{ maxWidth: "85%", width: "100%" }}>                  {/* Tool Invocations Section governed by mcpViewMode */}
                   {m.toolCalls && m.toolCalls.length > 0 && mcpViewMode !== "hide" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                       {/* If Minimize mode: show a compact summary bar */}
@@ -1183,22 +2023,54 @@ export function App() {
                       boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                     }}
                   >
-                    {m.content ? (
-                      <>
-                        <MarkdownRenderer content={m.content} />
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            marginTop: 12,
-                            paddingTop: 8,
-                            borderTop: "1px solid var(--border-color)",
-                            fontSize: 11,
-                            color: "var(--text-muted)",
-                            flexWrap: "wrap",
-                          }}
-                        >
+                    {m.content ? (() => {
+                      // Extract thinking process if wrapped in <think>...</think>
+                      let thoughtText = "";
+                      let mainText = m.content;
+
+                      const thinkMatch = m.content.match(/<think>([\s\S]*?)<\/think>/i);
+                      if (thinkMatch) {
+                        thoughtText = thinkMatch[1].trim();
+                        mainText = m.content.replace(/<think>[\s\S]*?<\/think>/i, "").trim();
+                      } else if (m.content.startsWith("<think>")) {
+                        // In-flight streaming thinking tag before closing
+                        thoughtText = m.content.replace("<think>", "").trim();
+                        mainText = "";
+                      }
+
+                      return (
+                        <>
+                          {/* Dedicated Thinking Block */}
+                          {thoughtText && (
+                            <ThoughtBlock
+                              thoughtText={thoughtText}
+                              viewMode={thinkingViewMode}
+                              defaultExpanded={thinkingViewMode === "full"}
+                            />
+                          )}
+
+                          {/* Synthesized Response Content */}
+                          {mainText ? (
+                            <MarkdownRenderer content={mainText} />
+                          ) : thoughtText && m.isStreaming ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", fontSize: 13, fontStyle: "italic", padding: "4px 0" }}>
+                              <Loader2 size={13} className="spin" color="#a855f7" /> Thinking in progress...
+                            </div>
+                          ) : null}
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 12,
+                              marginTop: 12,
+                              paddingTop: 8,
+                              borderTop: "1px solid var(--border-color)",
+                              fontSize: 11,
+                              color: "var(--text-muted)",
+                              flexWrap: "wrap",
+                            }}
+                          >
                           <span>Tokens: ~{Math.round(m.content.length / 3.5)}</span>
                           <span>Length: {m.content.length} chars</span>
                           {m.duration !== undefined && (
@@ -1252,7 +2124,8 @@ export function App() {
                           </button>
                         </div>
                       </>
-                    ) : m.isStreaming ? (
+                    );
+                  })() : m.isStreaming ? (
                       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--text-muted)", fontStyle: "italic", fontSize: 13 }}>
                         <Loader2 size={16} className="spin" color="var(--accent)" />
                         <span>Reasoning through tool outputs...</span>
@@ -1262,9 +2135,10 @@ export function App() {
                 </div>
               )}
             </div>
-          ))}
-          <div ref={chatEndRef} />
-        </div>
+          );
+        })}
+        <div ref={chatEndRef} />
+      </div>
 
         {/* Input Bar */}
         <div
@@ -1274,14 +2148,58 @@ export function App() {
             background: "var(--bg-secondary)",
             display: "flex",
             gap: 12,
+            alignItems: "center",
           }}
         >
+          <button
+            type="button"
+            onClick={() => setShowDocModal(true)}
+            title="Attach Multi-Tab Excel, PDF, Word, or Text Files"
+            style={{
+              padding: "11px 14px",
+              borderRadius: 8,
+              background: activeDocHashes.length > 0 ? "rgba(16, 185, 129, 0.12)" : "var(--bg-card)",
+              border: activeDocHashes.length > 0 ? "1px solid rgba(16, 185, 129, 0.5)" : "1px solid var(--border-color)",
+              color: activeDocHashes.length > 0 ? "#10b981" : "var(--text-muted)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              fontSize: 13,
+              fontWeight: 600,
+              transition: "all 0.15s ease",
+            }}
+          >
+            <Paperclip size={16} />
+            <span>Attachment</span>
+            {activeDocHashes.length > 0 && (
+              <span
+                style={{
+                  background: "#10b981",
+                  color: "#ffffff",
+                  borderRadius: "10px",
+                  padding: "1px 7px",
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minWidth: 18,
+                  height: 18,
+                  lineHeight: 1,
+                }}
+              >
+                {activeDocHashes.length}
+              </span>
+            )}
+          </button>
+
           <input
             type="text"
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask anything (e.g. 'Search for the latest news on Model Context Protocol')..."
+            placeholder="Ask anything or query attached Excel / PDF / Word documents..."
             disabled={loading}
             style={{
               flex: 1,
@@ -1299,6 +2217,7 @@ export function App() {
             disabled={loading || !inputPrompt.trim()}
             style={{
               padding: "0 22px",
+              height: 44,
               borderRadius: 8,
               background: loading ? "#94a3b8" : "#1f6feb",
               color: "#ffffff",
@@ -1756,6 +2675,31 @@ export function App() {
           onClose={() => setAlertPrompt(null)}
         />
       )}
+
+      {/* Multi-Tab Excel / PDF / Word Document Attachment Modal (Session Scoped) */}
+      <UploadDocModal
+        isOpen={showDocModal}
+        onClose={() => setShowDocModal(false)}
+        activeDocHashes={activeDocHashes}
+        onAddDocHash={addDocHash}
+        onRemoveDocHash={removeDocHash}
+        showAlert={showAlert}
+        showConfirm={showConfirm}
+      />
+
+      {/* Sub-Conversation / Turn Inspector & Clone Modal */}
+      <SubConversationModal
+        isOpen={!!subConvModalFile}
+        onClose={() => setSubConvModalFile(null)}
+        sessionFilename={subConvModalFile}
+        workspace={currentWorkspace}
+        onCloneSuccess={async (newFilename) => {
+          await fetchLogs(currentWorkspace);
+          await fetchWorkspaces();
+          await loadSession(newFilename, currentWorkspace);
+        }}
+        showAlert={showAlert}
+      />
     </div>
   );
 }

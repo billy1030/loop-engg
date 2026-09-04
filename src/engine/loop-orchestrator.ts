@@ -24,19 +24,31 @@ export class LoopOrchestrator {
   }
 
   /**
-   * Run the Loop Engineering protocol on a user query with multi-turn history support
+   * Run the Loop Engineering protocol on a user query with multi-turn history and document context support
    */
   async run(
     userPrompt: string,
     callbacks?: LoopEventCallbacks,
-    history?: Array<{ role: "user" | "assistant"; content: string }>
+    history?: Array<{ role: "user" | "assistant"; content: string }>,
+    attachedContext?: string
   ): Promise<{ answer: string; iterations: number; history: OpenAI.Chat.Completions.ChatCompletionMessageParam[] }> {
-    // 1. Build initial system message combining system prompt and AI skills
-    const fullSystemPrompt = [
-      this.config.prompts.systemPrompt,
+    // 1. Build initial system message combining system prompt, attached docs, and AI skills
+    const systemPromptParts = [this.config.prompts.systemPrompt];
+
+    if (attachedContext && attachedContext.trim().length > 0) {
+      systemPromptParts.push(
+        "\n--- [ATTACHED KNOWLEDGE BASE & REFERENCE DOCUMENTS (GROUND TRUTH)] ---\n",
+        attachedContext.trim(),
+        "\n--- [END OF ATTACHED DOCUMENTS] ---\n"
+      );
+    }
+
+    systemPromptParts.push(
       "\n--- Active AI Skills & Instructions ---\n",
-      this.config.prompts.skillsPrompt,
-    ].join("\n");
+      this.config.prompts.skillsPrompt
+    );
+
+    const fullSystemPrompt = systemPromptParts.join("\n");
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: fullSystemPrompt },

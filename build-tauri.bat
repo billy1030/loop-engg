@@ -9,27 +9,45 @@ echo.
 
 cd /d "%~dp0"
 
-:: 1. Ensure target deployment directory exists
+:: 1. Check prerequisites (Bun, Node, Rust/Cargo)
+where bun >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [Error] 'bun' is required to compile the standalone backend.
+    echo Please install Bun from https://bun.sh
+    pause
+    exit /b 1
+)
+
+where cargo >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [Error] 'cargo' is required to build the Tauri desktop app.
+    echo Please ensure the Rust toolchain is installed.
+    pause
+    exit /b 1
+)
+
+:: 2. Ensure target deployment directory exists
 if not exist "c:\ai\minibot\" (
     echo [Setup] Creating target directory c:\ai\minibot ...
     mkdir "c:\ai\minibot"
 )
 
-:: 2. Rebuild Frontend production bundle (Vite)
+:: 3. Rebuild Frontend production bundle (Vite)
 echo.
 echo [1/4] Building frontend production bundle (Vite)...
 cd frontend
 call npm run build
 if %errorlevel% neq 0 (
     echo [Error] Frontend build failed!
+    cd ..
     pause
     exit /b 1
 )
 cd ..
 
-:: 3. Compile Standalone Backend Binary with embedded frontend (Bun)
+:: 4. Compile Standalone Backend Binary with embedded frontend (Bun)
 echo.
-echo [2/4] Compiling standalone backend binary (Bun)...
+echo [2/4] Compiling standalone backend binary with embedded assets (Bun)...
 if not exist "src-tauri\bin\" mkdir "src-tauri\bin"
 call bun build src/server.ts --compile --outfile src-tauri/bin/minibot-backend.exe
 if %errorlevel% neq 0 (
@@ -38,9 +56,9 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 4. Compile Standalone Desktop Executable with embedded backend (Tauri + Rust)
+:: 5. Compile Standalone Desktop Executable with embedded backend (Tauri + Rust)
 echo.
-echo [3/4] Compiling Tauri standalone single-file binary...
+echo [3/4] Compiling Tauri standalone single-file binary (Tauri + Rust)...
 call npx --yes @tauri-apps/cli build
 if %errorlevel% neq 0 (
     echo [Error] Tauri build failed!
@@ -48,7 +66,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 5. Deploy Single-File Executable to c:\ai\minibot
+:: 6. Deploy Single-File Executable to c:\ai\minibot
 echo.
 echo [4/4] Deploying single executable to c:\ai\minibot ...
 
@@ -75,8 +93,12 @@ echo.
 echo ===================================================
 echo   Single Executable Built and Deployed Successfully!
 echo   Target Location: c:\ai\minibot\minibot.exe
-echo   Note: On launch, minibot.exe auto-initializes its
-echo         configuration and directory structure.
+echo.
+echo   Note: 
+echo   - minibot.exe is 100%% self-contained.
+echo   - No loose folders (node_modules, dist, frontend) needed.
+echo   - On launch, it auto-creates loop.config.json and .env.example.
 echo ===================================================
 echo.
 pause
+

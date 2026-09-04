@@ -6,6 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
+    "build:backend": "bun build src/server.ts --compile --outfile src-tauri/bin/minibot-backend.exe",
     "cli": "tsx src/cli/index.ts",
     "test": "tsx test/test-loop.ts",
     "tauri": "tauri",

@@ -1,6 +1,6 @@
-# 前端 UI/UX 設計與會話管理規格 (UI/UX & Session Management Specification)
+# MiniBot UI/UX & Session Management Specification
 
-本文件詳細記錄了 **Loop Engineering Chatbot (AI 小助手)** 在前端使用者介面（UI）、互動體驗（UX）、側邊欄版面佈局（Sidebar Layout）以及歷史工作階段復原（Session Re-hydration）的具體架構設計與實現規範。
+本文件詳細記錄了 **MiniBot (AI 小助手)** 在前端使用者介面（UI）、互動體驗（UX）、側邊欄版面佈局（Sidebar Layout）以及歷史工作階段復原（Session Re-hydration）的具體架構設計與實現規範。
 
 ---
 

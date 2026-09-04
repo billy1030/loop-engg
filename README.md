@@ -83,14 +83,29 @@ Create `.env` (or let the app resolve `MINIMAX_API_KEY` directly from your shell
 LLM_BASE_URL=https://api.minimaxi.com/v1
 LLM_API_KEY=your-api-key-here
 LLM_MODEL=MiniMax-M3
-PORT=7001
+PORT=7009
 ```
 
 #### Launch Web Server
 ```bash
-PORT=7001 npx tsx src/server.ts
+PORT=7009 npx tsx src/server.ts
 ```
-Then open your browser to **[http://localhost:7001](http://localhost:7001)**.
+Then open your browser to **[http://localhost:7009](http://localhost:7009)**.
+
+---
+
+### 3. Run or Build Desktop App (Tauri v2)
+
+#### Run in Desktop Mode:
+```bash
+npm run tauri:dev
+```
+
+#### Build Standalone Desktop Executable:
+```bash
+npm run tauri:build
+```
+The standalone `.exe` and `.msi` installers will be generated under `src-tauri/target/release/`.
 
 ---
 

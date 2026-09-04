@@ -1,6 +1,6 @@
-# Technology Stack (技術棧規格說明)
+# MiniBot Technology Stack Specification
 
-本文件詳細記錄了 **Loop Engineering Chatbot** 系統所採用的完整技術棧架構（Technology Stack），涵蓋後端引擎、前端使用者介面、通訊協議、MCP 生態以及各層級的核心依賴庫與版本資訊。
+本文件詳細記錄了 **MiniBot** 系統所採用的完整技術棧架構（Technology Stack），涵蓋後端引擎、前端使用者介面、桌面運行環境（Tauri v2）、通訊協議、MCP 生態以及各層級的核心依賴庫與版本資訊。
 
 ---
 

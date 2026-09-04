@@ -1,7 +1,6 @@
-# Architecture & Loop Protocol Specification
+# MiniBot Architecture & Protocol Specification
 
-## 1. Executive Overview
-The **Loop Engineering Chatbot** is an autonomous iterative execution system designed to augment Large Language Models (LLMs) that natively lack direct external capabilities—such as real-time web search, multimodal asset generation, or local code execution.
+The **MiniBot** is an autonomous iterative execution system designed to augment Large Language Models (LLMs) that natively lack direct external capabilities—such as real-time web search, multimodal asset generation, or local code execution. Powered by a ReAct loop engineering protocol and the Model Context Protocol (MCP), MiniBot runs as both a web application and a native desktop app via Tauri v2.
 
 Rather than relying on closed, proprietary tool platforms, this system implements an open standard host based on the **Model Context Protocol (MCP)** and an **OpenAI-compatible Tool Calling loop**.
 

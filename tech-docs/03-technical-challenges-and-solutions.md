@@ -1,6 +1,6 @@
-# Technical Challenges & Solutions (Engineering Insights)
+# Technical Challenges & Engineering Solutions
 
-During the design and implementation of the Loop Engineering Chatbot prototype, several core technical challenges were solved:
+During the design and implementation of the **MiniBot** (powered by Loop Engineering & MCP), several core technical challenges were solved:
 
 ---
 

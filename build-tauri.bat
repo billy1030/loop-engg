@@ -1,23 +1,23 @@
 @echo off
 chcp 65001 >nul
-title MiniBot - Tauri Compiler and Deployer
+title MiniBot - Single Binary Builder and Auto-Deployer
 
 echo ===================================================
-echo       MiniBot Tauri Compiler and Auto-Deployer
+echo     MiniBot Single-File Executable Deployer
 echo ===================================================
 echo.
 
 cd /d "%~dp0"
 
-:: 1. Ensure output directory exists
+:: 1. Ensure target deployment directory exists
 if not exist "c:\ai\minibot\" (
     echo [Setup] Creating target directory c:\ai\minibot ...
     mkdir "c:\ai\minibot"
 )
 
-:: 2. Rebuild Frontend production bundle
+:: 2. Rebuild Frontend production bundle (Vite)
 echo.
-echo [1/3] Building frontend production bundle (Vite)...
+echo [1/4] Building frontend production bundle (Vite)...
 cd frontend
 call npm run build
 if %errorlevel% neq 0 (
@@ -27,9 +27,20 @@ if %errorlevel% neq 0 (
 )
 cd ..
 
-:: 3. Compile Tauri Desktop App using Cargo
+:: 3. Compile Standalone Backend Binary with embedded frontend (Bun)
 echo.
-echo [2/3] Compiling Tauri standalone release binary...
+echo [2/4] Compiling standalone backend binary (Bun)...
+if not exist "src-tauri\bin\" mkdir "src-tauri\bin"
+call bun build src/server.ts --compile --outfile src-tauri/bin/minibot-backend.exe
+if %errorlevel% neq 0 (
+    echo [Error] Backend compilation failed!
+    pause
+    exit /b 1
+)
+
+:: 4. Compile Standalone Desktop Executable with embedded backend (Tauri + Rust)
+echo.
+echo [3/4] Compiling Tauri standalone single-file binary...
 call npx --yes @tauri-apps/cli build
 if %errorlevel% neq 0 (
     echo [Error] Tauri build failed!
@@ -37,63 +48,35 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: 4. Locate and Copy compiled executable & installers to c:\ai\minibot
+:: 5. Deploy Single-File Executable to c:\ai\minibot
 echo.
-echo [3/4] Deploying compiled binaries to c:\ai\minibot ...
+echo [4/4] Deploying single executable to c:\ai\minibot ...
 
-:: Copy minibot.exe (or app.exe)
+:: Copy standalone minibot.exe
 if exist "src-tauri\target\release\minibot.exe" (
     copy /y "src-tauri\target\release\minibot.exe" "c:\ai\minibot\minibot.exe" >nul
-    echo   [+] Copied minibot.exe to c:\ai\minibot\minibot.exe
+    echo   [+] Copied minibot.exe (Single Self-Contained Executable)
 ) else if exist "src-tauri\target\release\app.exe" (
     copy /y "src-tauri\target\release\app.exe" "c:\ai\minibot\minibot.exe" >nul
-    echo   [+] Copied app.exe to c:\ai\minibot\minibot.exe
+    echo   [+] Copied app.exe to minibot.exe
 )
 
-:: Copy NSIS setup exe installer if present
+:: Copy installers if present
 if exist "src-tauri\target\release\bundle\nsis\minibot_0.1.0_x64-setup.exe" (
     copy /y "src-tauri\target\release\bundle\nsis\minibot_0.1.0_x64-setup.exe" "c:\ai\minibot\minibot-setup.exe" >nul
     echo   [+] Copied installer to c:\ai\minibot\minibot-setup.exe
 )
-
-:: Copy MSI installer package if present
 if exist "src-tauri\target\release\bundle\msi\minibot_0.1.0_x64_en-US.msi" (
     copy /y "src-tauri\target\release\bundle\msi\minibot_0.1.0_x64_en-US.msi" "c:\ai\minibot\minibot.msi" >nul
     echo   [+] Copied MSI package to c:\ai\minibot\minibot.msi
 )
 
-:: 5. Copy Backend runtime assets ignoring logs and secret API keys
-echo.
-echo [4/4] Deploying clean backend assets (excluding logs and private keys)...
-
-:: Ensure target runtime subdirectories
-if not exist "c:\ai\minibot\dist" mkdir "c:\ai\minibot\dist"
-if not exist "c:\ai\minibot\frontend\dist" mkdir "c:\ai\minibot\frontend\dist"
-
-:: Copy compiled backend dist
-xcopy /e /y /i /q "dist" "c:\ai\minibot\dist" >nul
-echo   [+] Copied backend dist/
-
-:: Copy frontend dist bundle
-xcopy /e /y /i /q "frontend\dist" "c:\ai\minibot\frontend\dist" >nul
-echo   [+] Copied frontend dist/
-
-:: Copy configuration template and package.json
-copy /y "package.json" "c:\ai\minibot\package.json" >nul
-copy /y "loop.config.json" "c:\ai\minibot\loop.config.json" >nul
-copy /y ".env.example" "c:\ai\minibot\.env.example" >nul
-echo   [+] Copied clean config and .env.example template
-
-:: IMPORTANT: We specifically DO NOT copy:
-::  - .env (to avoid exposing private API keys)
-::  - logs/ or *.log (so the standalone app starts with its own clean logs)
-::  - config/sessions.json (so no prior session data leaks)
-
-
 echo.
 echo ===================================================
-echo   Compilation and Deployment Completed Successfully!
+echo   Single Executable Built and Deployed Successfully!
 echo   Target Location: c:\ai\minibot\minibot.exe
+echo   Note: On launch, minibot.exe auto-initializes its
+echo         configuration and directory structure.
 echo ===================================================
 echo.
 pause

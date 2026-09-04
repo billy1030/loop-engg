@@ -43,6 +43,7 @@ import {
   getUserDirs,
 } from "./auth/user-manager.js";
 import { SafeUser } from "./auth/types.js";
+import { EMBEDDED_FRONTEND } from "./server-embedded-assets.js";
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 7009;
 
@@ -51,7 +52,19 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
-// Serve static frontend files if built
+// 1. Serve static files from embedded memory if available (standalone single binary)
+app.use((req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  const urlPath = req.path;
+  const asset = EMBEDDED_FRONTEND[urlPath];
+  if (asset) {
+    res.setHeader("Content-Type", asset.contentType);
+    return res.send(asset.content);
+  }
+  next();
+});
+
+// 2. Serve static frontend files from disk if folder exists (development mode)
 const clientDistPath = path.resolve(process.cwd(), "frontend/dist");
 if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
@@ -943,16 +956,20 @@ app.delete("/api/logs/:filename", (req, res) => {
 app.use((req, res) => {
   const indexPath = path.resolve(process.cwd(), "frontend/dist/index.html");
   if (fs.existsSync(indexPath)) {
-    res.sendFile(indexPath);
-  } else {
-    res.send(`
-      <div style="font-family: sans-serif; padding: 40px; text-align: center;">
-        <h2>Mini Chat Bot API Server is running on port ${PORT}</h2>
-        <p>Frontend is currently building or running via Vite.</p>
-        <p>Try querying <code>/api/config</code> or <code>/api/tools</code>.</p>
-      </div>
-    `);
+    return res.sendFile(indexPath);
   }
+  const embeddedIndex = EMBEDDED_FRONTEND["/index.html"] || EMBEDDED_FRONTEND["/"];
+  if (embeddedIndex) {
+    res.setHeader("Content-Type", embeddedIndex.contentType);
+    return res.send(embeddedIndex.content);
+  }
+  res.send(`
+    <div style="font-family: sans-serif; padding: 40px; text-align: center;">
+      <h2>Mini Chat Bot API Server is running on port ${PORT}</h2>
+      <p>Frontend is currently building or running via Vite.</p>
+      <p>Try querying <code>/api/config</code> or <code>/api/tools</code>.</p>
+    </div>
+  `);
 });
 
 async function start() {

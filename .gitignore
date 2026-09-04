@@ -7,3 +7,4 @@ logs/
 storage/
 config/sessions.json
 src-tauri/target/
+src-tauri/bin/

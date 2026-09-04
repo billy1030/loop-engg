@@ -10,7 +10,8 @@
     "test": "tsx test/test-loop.ts",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "tauri:deploy": "build-tauri.bat"
   },
   "keywords": [
     "mcp",

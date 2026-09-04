@@ -43,11 +43,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         data = await res.json();
       } else {
         const text = await res.text();
+        if (text.includes("<!DOCTYPE html>") || text.includes("<html")) {
+          throw new Error("Cannot connect to authentication service. Please ensure the backend server is running on port 7009.");
+        }
         throw new Error(text || `Server responded with HTTP ${res.status}`);
       }
 
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Login failed");
+        throw new Error(data.error || "Invalid username or password.");
       }
 
       if (data.step === "totp_required") {

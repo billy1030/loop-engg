@@ -90,46 +90,58 @@ Got it! 👍
 
 ---
 
-## 4. Multi-Tier Conversation Tree & Branching
+## 4. Multi-Tier Conversation Tree & Branching (Max 5 Levels)
 
 ```mermaid
 graph TD
-    A["Root Session A (Level 1)"] -->|"Fork Turn #2"| B["Sub-Session B (Level 2)"]
-    B -->|"Fork Turn #1"| C["Sub-Session C (Level 3)"]
-    B -->|"Fork Turn #3"| D["Sub-Session D (Level 3)"]
-    A -->|"Fork Turn #4"| E["Sub-Session E (Level 2)"]
+    A["Root Session A (Level 0)"] -->|"Fork L#1"| B["Sub-Session B (Level 1)"]
+    B -->|"Fork L#2"| C["Sub-Session C (Level 2)"]
+    C -->|"Fork L#3"| D["Sub-Session D (Level 3)"]
+    D -->|"Fork L#4"| E["Sub-Session E (Level 4)"]
+    E -->|"Fork L#5 (Max Limit)"| F["Sub-Session F (Level 5)"]
 
     style A fill:#2563eb,stroke:#1d4ed8,color:#fff
-    style B fill:#7c3aed,stroke:#6d28d9,color:#fff
-    style C fill:#db2777,stroke:#be185d,color:#fff
-    style D fill:#db2777,stroke:#be185d,color:#fff
-    style E fill:#7c3aed,stroke:#6d28d9,color:#fff
+    style B fill:#a855f7,stroke:#9333ea,color:#fff
+    style C fill:#ec4899,stroke:#db2777,color:#fff
+    style D fill:#14b8a6,stroke:#0d9488,color:#fff
+    style E fill:#f59e0b,stroke:#d97706,color:#fff
+    style F fill:#ef4444,stroke:#dc2626,color:#fff
 ```
 
-### Tree Reconstruction Algorithm
-In the frontend (`App.tsx`), the flat file list is transformed into a hierarchical tree in $O(N)$ time:
-1. `sessionMap`: Maps `filename -> session`.
-2. `childrenMap`: Maps `parentFilename -> childSessions[]`.
-3. `rootSessions`: Identifies sessions where `!clonedFrom || !sessionMap.has(parentFilename)`.
-4. Recursive rendering: `renderSessionCard(session, depth)` applies depth-based branch colors (`Purple` $\to$ `Pink` $\to$ `Teal`) and dynamic indentation.
+### 5-Tier Fork Level Constraint
+To maintain directory clarity and avoid runaway tree recursion, the system enforces a strict maximum fork depth of **5 levels**:
+- **Depth Calculation**: `getConversationForkLevel(filename)` traverses the session's `clonedFrom.parentFilename` ancestor chain.
+- **Backend Rejection**: If `nextForkLevel > 5`, `/api/logs/:filename/clone-turn` rejects the request with an explicit error.
+- **Frontend Prevention**: When a Level 5 conversation is inspected in `SubConversationModal`, fork action buttons are automatically locked with a `Max Fork Level (5) Reached` badge.
+
+### Tree Reconstruction & Color Coding
+In the sidebar (`App.tsx`), the flat file list is transformed into a hierarchical tree with level-tailored color accents:
+- **Root (Level 0)**: `var(--accent)` (Blue)
+- **Level 1**: `#a855f7` (Purple)
+- **Level 2**: `#ec4899` (Pink)
+- **Level 3**: `#14b8a6` (Teal)
+- **Level 4**: `#f59e0b` (Amber)
+- **Level 5 (Max)**: `#ef4444` (Red)
 
 ### Deletion & Orphan Fallback Behavior
-- When a middle node (e.g. Node B) is deleted:
-  - Node C detects `!sessionMap.has(B)` and is **automatically promoted to a root conversation** without data loss.
+- When a middle node is deleted:
+  - Descendants detect `!sessionMap.has(parentFilename)` and are **automatically promoted to a root conversation** without data loss.
   - No broken pointers, orphan errors, or cascade corruption.
 
 ---
 
-## 5. Attachment Isolation & Selective Forking
+## 5. Attachment Isolation, CAS Fallback & Cross-User State Purging
 
-### Content-Addressable Storage (CAS)
-- Files uploaded via the Attachment modal are hashed (`SHA-256`) and stored in `uploads/store/<hash>.bin`.
-- Session logs store only string references (`Attached Document Hashes: ["<hash1>", ...]`).
+### Content-Addressable Storage (CAS) Fallback
+- Files uploaded are hashed (`SHA-256`) and stored in user directory `storage/users/{userNumber}/documents/`.
+- `DocumentManager` implements a **hierarchical fallback lookup**:
+  1. Checks user-specific index `storage/users/{userNumber}/index/documents-index.json`.
+  2. Falls back to global shared repository `storage/index/documents-index.json` to seamlessly preserve access to pre-existing session attachments.
 
 ### Selective Forking Flow
 When branching a session in `SubConversationModal`:
 1. The modal inspects the parent session's `attachedDocHashes`.
-2. Document details (file names, types, sizes) are fetched via `/api/documents/by-hashes`.
+2. Document details (file names, types, sizes) are fetched via `/api/documents/by-hashes` with `credentials: "include"`.
 3. The user can **Select All**, **Deselect All (0 attachments)**, or **select individual attachments** via checkboxes.
 4. The server creates the new cloned `.md` file with the selected hashes:
    ```typescript
@@ -139,13 +151,16 @@ When branching a session in `SubConversationModal`:
      mode: "single" | "up_to" = "up_to",
      workspace: string = "default",
      targetWorkspace?: string,
-     customDocHashes?: string[]
+     customDocHashes?: string[],
+     baseDir: string = "logs",
+     userNumber: string = "00000"
    )
    ```
 
-### Isolation Guarantees
-- **Parent Mutation Isolation**: Uploading new files or detaching documents in the parent session after forking has **zero impact** on previously cloned sub-conversations.
-- **Child Mutation Isolation**: Modifying attachments in a child branch does not mutate the parent's `attachedDocHashes`.
+### Cross-User State Purging (Zero Leakage)
+- **React Component Remounting**: `RootApp` keys the main `App` component by `currentUser.id` (`<App key={currentUser.id} />`).
+  - Switching between users completely destroys the previous user's React state (messages, active file, attachments), eliminating any need for manual cache clearing or browser F5 refresh.
+- **Markdown User-Tag Matching**: Every session markdown file contains `- **User**: <userNumber>`. Backend APIs (`parseConversationLog` and `listConversationLogs`) verify ownership against the active session token and strictly block unauthorized cross-user reading.
 
 ---
 

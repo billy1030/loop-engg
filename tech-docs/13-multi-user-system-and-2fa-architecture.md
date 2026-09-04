@@ -73,3 +73,17 @@ loop-engg/
 - **Password**: `admin123`
 - **Tenant ID**: `00000`
 - **Role**: `admin`
+
+---
+
+## 5. File-Level User ID Verification & Cross-User State Purging
+
+### 1. Dual-Layer File Ownership Verification
+To prevent cross-tenant enumeration or accidental data leakage:
+- **Header Metadata**: Every session markdown file stores `- **User**: 0000X`.
+- **Read Verification (`parseConversationLog`)**: Whenever a log file is requested, the backend parses the header metadata. If the log's user ID does not match the active session user (and the requester is not admin `00000`), the request is rejected with `Unauthorized access`.
+- **List Filtering (`listConversationLogs`)**: Logs are strictly filtered so non-admin users cannot even see filenames belonging to other accounts.
+
+### 2. Frontend React Tree Remounting (`key={currentUser.id}`)
+- Switching between users without page reloads could otherwise preserve in-memory React component states (`messages`, `activeSessionFile`, `attachedDocHashes`).
+- By wrapping the application root with `<App key={currentUser.id} />`, React completely unmounts and purges the previous user's component tree upon login/switch, guaranteeing **100% clean state initialization without manual F5 refreshes or cache purging**.

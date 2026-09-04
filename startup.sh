@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Mini Chat Bot Launcher for macOS / Linux
+# MiniBot Launcher for macOS / Linux
 # Model Context Protocol (MCP) + React 19 + Vite 8
 
 set -e
@@ -8,10 +8,10 @@ set -e
 # Change to script directory
 cd "$(cd "$(dirname "$0")" && pwd)"
 
-PORT="${PORT:-7002}"
+PORT="${PORT:-7009}"
 
 echo "==================================================="
-echo "          Mini Chat Bot Launcher"
+echo "                MiniBot Launcher"
 echo "  Model Context Protocol (MCP) + React 19 + Vite 8"
 echo "==================================================="
 echo ""

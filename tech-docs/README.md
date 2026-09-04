@@ -24,9 +24,9 @@ Welcome to the **MiniBot** technical documentation. This directory provides in-d
 ---
 
 ## Quick Reference Commands
-- **One-Click Startup (macOS / Linux)**: `./startup.sh` (or `PORT=7001 ./startup.sh`)
+- **One-Click Startup (macOS / Linux)**: `./startup.sh` (or `PORT=7009 ./startup.sh`)
 - **One-Click Startup (Windows)**: `startup.bat`
-- **Start Backend & Web Server**: `PORT=7001 npx tsx src/server.ts`
+- **Start Backend & Web Server**: `PORT=7009 npx tsx src/server.ts`
 - **Start Interactive Terminal CLI REPL**: `npm run cli`
 - **Execute Single Test Query**: `npx tsx src/cli/index.ts --query "Search the internet for..."`
 - **Run Integration Tests**: `npm test`

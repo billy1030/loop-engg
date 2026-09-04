@@ -2,6 +2,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { MCPServerDef } from "../config/schema.js";
 import { BigFixStreamableHttpClient } from "./bigfix-client.js";
+import { BUILTIN_INPROCESS_TOOLS, executeInProcessTool } from "./inprocess-tools.js";
 
 export interface DiscoveredTool {
   serverName: string;
@@ -118,7 +119,22 @@ export class MCPClientManager {
           console.log(`[MCP] Connected to stdio server "${serverName}" (${toolsResult.tools.length} tools registered)`);
         }
       } catch (err: any) {
-        console.error(`[MCP] Failed to connect to server "${serverName}":`, err.message);
+        console.warn(`[MCP] Note: stdio connection for "${serverName}" skipped or failed (${err.message}). Checking built-in in-process tools...`);
+        // Fallback: Check if there are built-in tools for this server
+        const builtins = BUILTIN_INPROCESS_TOOLS.filter((t) => t.serverName === serverName);
+        if (builtins.length > 0) {
+          for (const tool of builtins) {
+            this.tools.set(tool.name, tool);
+          }
+          console.log(`[MCP] Registered ${builtins.length} built-in in-process tools for "${serverName}"`);
+        }
+      }
+    }
+
+    // Also guarantee core built-in tools (web-search, minimax) are registered if servers are enabled
+    for (const tool of BUILTIN_INPROCESS_TOOLS) {
+      if (serversConfig[tool.serverName]?.enabled && !this.tools.has(tool.name)) {
+        this.tools.set(tool.name, tool);
       }
     }
   }
@@ -160,7 +176,13 @@ export class MCPClientManager {
       throw new Error(`Tool "${name}" is not registered on any active MCP server.`);
     }
 
-    // 1. Check HTTP clients (e.g. BigFix)
+    // 1. Check if tool is handled by in-process builtins first
+    const inProcessResult = await executeInProcessTool(name, args);
+    if (inProcessResult !== null) {
+      return inProcessResult;
+    }
+
+    // 2. Check HTTP clients (e.g. BigFix)
     const httpClient = this.httpClients.get(toolDef.serverName);
     if (httpClient) {
       const response = await httpClient.callTool(name, args);
@@ -175,7 +197,7 @@ export class MCPClientManager {
       return JSON.stringify(response);
     }
 
-    // 2. Check Stdio clients
+    // 3. Check Stdio clients
     const target = this.stdioClients.get(toolDef.serverName);
     if (!target) {
       throw new Error(`Server "${toolDef.serverName}" for tool "${name}" is not connected.`);

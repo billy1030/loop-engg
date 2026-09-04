@@ -10,10 +10,9 @@ use std::os::windows::process::CommandExt;
 
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-// Embed the compiled backend binary and default configuration files directly into minibot.exe
+// Embed the compiled backend binary and default configuration file directly into minibot.exe
 static BACKEND_BIN_BYTES: &[u8] = include_bytes!("../bin/minibot-backend.exe");
-static DEFAULT_CONFIG_STR: &str = include_str!("../../loop.config.json");
-static DEFAULT_ENV_STR: &str = include_str!("../../.env.example");
+static DEFAULT_CONFIG_STR: &str = include_str!("../../minibot.config.json");
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -41,14 +40,9 @@ pub fn run() {
           .unwrap_or_else(|| PathBuf::from("."));
 
         // 2. Auto-initialize directory structure and default configuration if absent
-        let config_path = exe_dir.join("loop.config.json");
+        let config_path = exe_dir.join("minibot.config.json");
         if !config_path.exists() {
           let _ = fs::write(&config_path, DEFAULT_CONFIG_STR);
-        }
-
-        let env_example_path = exe_dir.join(".env.example");
-        if !env_example_path.exists() {
-          let _ = fs::write(&env_example_path, DEFAULT_ENV_STR);
         }
 
         let _ = fs::create_dir_all(exe_dir.join("logs"));

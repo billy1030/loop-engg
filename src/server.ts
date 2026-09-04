@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import path from "node:path";
 import fs from "node:fs";
-import { loadConfig } from "./config/index.js";
+import { loadConfig, saveConfigToDisk } from "./config/index.js";
 import { LoopConfig, MCPServerDef } from "./config/schema.js";
 import { MCPClientManager } from "./mcp/client-manager.js";
 import { LoopOrchestrator } from "./engine/loop-orchestrator.js";
@@ -556,22 +556,29 @@ app.delete("/api/users/:id", requireAdmin, (req, res) => {
 
 // 1. Get Configuration & Status
 app.get("/api/config", (req, res) => {
+  const maskedKey = config.llm.apiKey
+    ? (config.llm.apiKey.length > 8 ? `${config.llm.apiKey.slice(0, 6)}...****` : "****")
+    : "";
+
   const safeConfig = {
     ...config,
+    llm: {
+      ...config.llm,
+      apiKey: maskedKey,
+    },
     tools: mcpManager.getOpenAITools(),
     discoveredTools: mcpManager.getDiscoveredTools(),
   };
   res.json(safeConfig);
 });
 
-// 2. Update Configuration & Hot-Reload MCP Servers
+// 2. Update Configuration, Persist to Disk, and Hot-Reload MCP Servers
 app.post("/api/config", async (req, res) => {
   try {
     const updates = req.body;
     if (updates.llm) {
-      const newApiKey = updates.llm.apiKey?.includes("...***")
-        ? config.llm.apiKey
-        : updates.llm.apiKey;
+      const isMasked = updates.llm.apiKey?.includes("...****") || updates.llm.apiKey === "****";
+      const newApiKey = isMasked ? config.llm.apiKey : updates.llm.apiKey;
 
       config.llm = {
         ...config.llm,
@@ -589,10 +596,22 @@ app.post("/api/config", async (req, res) => {
       config.mcpServers = updates.mcpServers;
       await initMCP();
     }
+
+    // Persist changes directly to minibot.config.json
+    saveConfigToDisk(config);
+
+    const maskedKey = config.llm.apiKey
+      ? (config.llm.apiKey.length > 8 ? `${config.llm.apiKey.slice(0, 6)}...****` : "****")
+      : "";
+
     res.json({
       success: true,
       config: {
         ...config,
+        llm: {
+          ...config.llm,
+          apiKey: maskedKey,
+        },
         tools: mcpManager.getOpenAITools(),
         discoveredTools: mcpManager.getDiscoveredTools(),
       },

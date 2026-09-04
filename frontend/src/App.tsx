@@ -439,6 +439,13 @@ export function App() {
       if (data?.mcpServers) {
         setMcpJsonText(JSON.stringify(data.mcpServers, null, 2));
       }
+
+      // If no valid LLM API key is configured yet, directly pop up the LLM setup screen
+      const apiKey = data?.llm?.apiKey;
+      const isConfigured = apiKey && apiKey.trim().length > 0 && !apiKey.startsWith("${");
+      if (!isConfigured) {
+        setShowConfig(true);
+      }
     } catch (err) {
       console.error("Failed to load config:", err);
     }

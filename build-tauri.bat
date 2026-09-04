@@ -97,7 +97,7 @@ echo.
 echo   Note: 
 echo   - minibot.exe is 100%% self-contained.
 echo   - No loose folders (node_modules, dist, frontend) needed.
-echo   - On launch, it auto-creates loop.config.json and .env.example.
+echo   - On launch, it auto-creates minibot.config.json with all settings.
 echo ===================================================
 echo.
 pause

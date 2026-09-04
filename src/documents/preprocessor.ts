@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import mammoth from "mammoth";
+import * as pdfParseModule from "pdf-parse";
 
 export interface PreprocessResult {
   text: string;
@@ -103,17 +104,21 @@ export function preprocessExcel(buffer: Buffer, fileName: string): PreprocessRes
 export async function preprocessPdf(buffer: Buffer, fileName: string): Promise<PreprocessResult> {
   let extractedText = "";
   try {
-    // Dynamic import to handle both CJS and ESM environments cleanly
-    const pdfParseModule: any = await import("pdf-parse");
-    const pdfParser = pdfParseModule.default || pdfParseModule;
-    if (typeof pdfParser === "function") {
-      const data = await pdfParser(buffer);
-      extractedText = (data.text || "").trim();
-    } else if (pdfParser.PDFParse) {
-      const instance = new pdfParser.PDFParse({ data: buffer });
+    const mod: any = pdfParseModule;
+    const PDFParseClass = mod.PDFParse || mod.default?.PDFParse;
+    if (PDFParseClass) {
+      const instance = new PDFParseClass({ data: buffer });
       const res = await instance.getText();
       extractedText = (res?.text || (typeof res === "string" ? res : "")).trim();
       if (instance.destroy) await instance.destroy();
+    } else {
+      const parserFn = typeof mod === "function" ? mod : mod.default;
+      if (typeof parserFn === "function") {
+        const data = await parserFn(buffer);
+        extractedText = (data.text || "").trim();
+      } else {
+        extractedText = "[PDF Note]: PDF parser module loaded without text extractor.";
+      }
     }
   } catch (err: any) {
     extractedText = `[PDF Extraction Note]: ${err.message}`;

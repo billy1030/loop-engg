@@ -56,6 +56,7 @@ export function SubConversationModal({
   const [turns, setTurns] = useState<TurnData[]>([]);
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number>(1);
   const [sessionTitle, setSessionTitle] = useState<string>("");
+  const [forkLevel, setForkLevel] = useState<number>(0);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   // Attachment management state for cloning
@@ -69,6 +70,7 @@ export function SubConversationModal({
       setTurns([]);
       setSelectedTurnIndex(1);
       setSessionTitle("");
+      setForkLevel(0);
       setAttachedDocs([]);
       setSelectedDocHashes([]);
     }
@@ -81,6 +83,7 @@ export function SubConversationModal({
       if (!res.ok) throw new Error("Failed to load session details");
       const data = await res.json();
       setSessionTitle(data.title || filename);
+      setForkLevel(data.forkLevel || 0);
 
       const rawHashes: string[] = data.attachedDocHashes || [];
       setSelectedDocHashes(rawHashes);
@@ -156,13 +159,21 @@ export function SubConversationModal({
     );
   };
 
+  const MAX_FORK_LEVEL = 5;
+  const isMaxForkReached = forkLevel >= MAX_FORK_LEVEL;
+
   const handleCloneTurn = async (mode: "single" | "up_to") => {
     if (!sessionFilename) return;
+    if (isMaxForkReached) {
+      showAlert(`已達到分支最大層級上限 (Level ${MAX_FORK_LEVEL})，無法繼續向下 Fork。`, "warning", "Fork 限制");
+      return;
+    }
     try {
       setCloning(true);
       const res = await fetch(`/api/logs/${encodeURIComponent(sessionFilename)}/clone-turn`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           turnIndex: selectedTurnIndex,
           mode,
@@ -177,9 +188,9 @@ export function SubConversationModal({
       }
 
       showAlert(
-        `Sub-conversation successfully cloned into: ${data.newFilename} (with ${selectedDocHashes.length} attachments)`,
+        `子會話已成功 Fork 成獨立新會話！\n檔名: ${data.newFilename}\n分支層級: Level ${data.forkLevel || (forkLevel + 1)} / ${MAX_FORK_LEVEL} (附帶 ${selectedDocHashes.length} 個附件)`,
         "success",
-        "Clone Created"
+        "Fork 成功"
       );
       onClose();
       onCloneSuccess(data.newFilename);
@@ -276,6 +287,25 @@ export function SubConversationModal({
                   }}
                 >
                   {turns.length} {turns.length === 1 ? "Turn" : "Turns"}
+                </span>
+
+                {/* Fork Level Badge */}
+                <span
+                  style={{
+                    fontSize: 11,
+                    padding: "2px 8px",
+                    borderRadius: 12,
+                    background: isMaxForkReached ? "rgba(239, 68, 68, 0.15)" : "rgba(168, 85, 247, 0.15)",
+                    color: isMaxForkReached ? "#ef4444" : "#a855f7",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
+                  <GitFork size={12} />
+                  Level {forkLevel} / {MAX_FORK_LEVEL}
+                  {isMaxForkReached ? " (MAX)" : ""}
                 </span>
               </div>
               <div
@@ -378,36 +408,25 @@ export function SubConversationModal({
                       borderRadius: 8,
                       cursor: "pointer",
                       background: isSelected ? "rgba(37, 99, 235, 0.15)" : "var(--bg-secondary)",
-                      border: isSelected
-                        ? "1px solid var(--accent)"
-                        : "1px solid var(--border-color)",
+                      border: isSelected ? "1px solid var(--accent)" : "1px solid var(--border-color)",
                       transition: "all 0.15s ease",
                       display: "flex",
                       flexDirection: "column",
                       gap: 4,
                     }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected) e.currentTarget.style.borderColor = "var(--text-muted)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected) e.currentTarget.style.borderColor = "var(--border-color)";
-                    }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <span
                         style={{
                           fontSize: 12,
                           fontWeight: 700,
                           color: isSelected ? "var(--accent)" : "var(--text-main)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 5,
                         }}
                       >
-                        Sub Conversation #{turn.turnIndex}
+                        Turn #{turn.turnIndex}
                       </span>
                       {turn.toolCalls && turn.toolCalls.length > 0 && (
                         <span
@@ -418,9 +437,12 @@ export function SubConversationModal({
                             background: "rgba(16, 185, 129, 0.15)",
                             color: "#10b981",
                             fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 3,
                           }}
                         >
-                          {turn.toolCalls.length} tools
+                          <Wrench size={10} /> {turn.toolCalls.length} tools
                         </span>
                       )}
                     </div>
@@ -430,13 +452,10 @@ export function SubConversationModal({
                         color: "var(--text-muted)",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        lineHeight: "1.4",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      {turn.userPrompt || "(No user prompt)"}
+                      {turn.userPrompt || "(No query text)"}
                     </div>
                   </div>
                 );
@@ -444,31 +463,30 @@ export function SubConversationModal({
             )}
           </div>
 
-          {/* Right Column: Selected Turn Detail & Fork Actions */}
+          {/* Right Column: Turn Inspector & Fork Actions */}
           <div
             style={{
               flex: 1,
               display: "flex",
               flexDirection: "column",
               backgroundColor: "var(--bg-card)",
-              minWidth: 0,
+              overflow: "hidden",
             }}
           >
-            {/* Top Bar for Selected Turn with Fork Buttons */}
+            {/* Action Bar */}
             <div
               style={{
                 padding: "12px 18px",
                 borderBottom: "1px solid var(--border-color)",
-                backgroundColor: "var(--bg-secondary)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: 12,
+                backgroundColor: "var(--bg-secondary)",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-main)" }}>
-                  Viewing Turn #{selectedTurnIndex}
+                  Turn #{selectedTurnIndex} Overview
                 </span>
                 {currentTurn?.duration && (
                   <span
@@ -487,64 +505,85 @@ export function SubConversationModal({
 
               {/* Fork / Clone Actions */}
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <button
-                  onClick={() => handleCloneTurn("single")}
-                  disabled={cloning}
-                  title="Fork ONLY this selected turn as a standalone new conversation"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "6px 12px",
-                    borderRadius: 6,
-                    background: "rgba(37, 99, 235, 0.1)",
-                    border: "1px solid var(--accent)",
-                    color: "var(--accent)",
-                    cursor: cloning ? "not-allowed" : "pointer",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    transition: "all 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!cloning) e.currentTarget.style.background = "rgba(37, 99, 235, 0.2)";
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!cloning) e.currentTarget.style.background = "rgba(37, 99, 235, 0.1)";
-                  }}
-                >
-                  <GitFork size={14} />
-                  {cloning ? "Cloning..." : `Fork This Turn Only (#${selectedTurnIndex})`}
-                </button>
-
-                {turns.length > 1 && (
-                  <button
-                    onClick={() => handleCloneTurn("up_to")}
-                    disabled={cloning}
-                    title={`Fork all turns up to Turn #${selectedTurnIndex} into a new conversation`}
+                {isMaxForkReached ? (
+                  <span
                     style={{
+                      fontSize: 11.5,
+                      fontWeight: 600,
+                      color: "#ef4444",
+                      background: "rgba(239, 68, 68, 0.1)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      padding: "5px 10px",
+                      borderRadius: 6,
                       display: "flex",
                       alignItems: "center",
-                      gap: 6,
-                      padding: "6px 14px",
-                      borderRadius: 6,
-                      background: "var(--accent)",
-                      border: "none",
-                      color: "#fff",
-                      cursor: cloning ? "not-allowed" : "pointer",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      transition: "opacity 0.15s ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!cloning) e.currentTarget.style.opacity = "0.9";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!cloning) e.currentTarget.style.opacity = "1";
+                      gap: 4,
                     }}
                   >
-                    <GitFork size={14} />
-                    {cloning ? "Cloning..." : `Fork Up To Turn #${selectedTurnIndex}`}
-                  </button>
+                    <GitFork size={13} /> Max Fork Level (5) Reached
+                  </span>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => handleCloneTurn("single")}
+                      disabled={cloning}
+                      title={`Fork ONLY this selected turn into a new Level ${forkLevel + 1} conversation`}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 12px",
+                        borderRadius: 6,
+                        background: "rgba(37, 99, 235, 0.1)",
+                        border: "1px solid var(--accent)",
+                        color: "var(--accent)",
+                        cursor: cloning ? "not-allowed" : "pointer",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        transition: "all 0.15s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!cloning) e.currentTarget.style.background = "rgba(37, 99, 235, 0.2)";
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!cloning) e.currentTarget.style.background = "rgba(37, 99, 235, 0.1)";
+                      }}
+                    >
+                      <GitFork size={14} />
+                      {cloning ? "Cloning..." : `Fork Turn #${selectedTurnIndex} (Level ${forkLevel + 1})`}
+                    </button>
+
+                    {turns.length > 1 && (
+                      <button
+                        onClick={() => handleCloneTurn("up_to")}
+                        disabled={cloning}
+                        title={`Fork all turns up to Turn #${selectedTurnIndex} into a new Level ${forkLevel + 1} conversation`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "6px 14px",
+                          borderRadius: 6,
+                          background: "var(--accent)",
+                          border: "none",
+                          color: "#fff",
+                          cursor: cloning ? "not-allowed" : "pointer",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          transition: "opacity 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!cloning) e.currentTarget.style.opacity = "0.9";
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!cloning) e.currentTarget.style.opacity = "1";
+                        }}
+                      >
+                        <GitFork size={14} />
+                        {cloning ? "Cloning..." : `Fork Up To #${selectedTurnIndex} (Level ${forkLevel + 1})`}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>

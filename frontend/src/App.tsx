@@ -1074,20 +1074,22 @@ export function App() {
                   const hasChildren = children.length > 0;
                   const isChild = depth > 0;
 
-                  // Branch colors according to depth level
+                  // Branch colors according to depth level (Max Level 5)
                   const branchColors = [
-                    "var(--accent)", // Root
-                    "rgba(168, 85, 247, 0.5)", // Level 1 (Purple)
-                    "rgba(236, 72, 153, 0.5)", // Level 2 (Pink)
-                    "rgba(20, 184, 166, 0.5)", // Level 3+ (Teal)
+                    "var(--accent)",             // Root (0)
+                    "rgba(168, 85, 247, 0.6)",   // Level 1 (Purple)
+                    "rgba(236, 72, 153, 0.6)",   // Level 2 (Pink)
+                    "rgba(20, 184, 166, 0.6)",   // Level 3 (Teal)
+                    "rgba(245, 158, 11, 0.6)",   // Level 4 (Amber)
+                    "rgba(239, 68, 68, 0.6)",    // Level 5 (Red / Max)
                   ];
-                  const branchBorderColor = branchColors[Math.min(depth, branchColors.length - 1)];
+                  const branchBorderColor = branchColors[Math.min(depth, 5)];
 
                   return (
                     <div key={session.filename} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       <div
                         onClick={() => loadSession(session.filename)}
-                        title={`Click to load: ${session.filename}${depth > 0 ? ` (Level ${depth + 1})` : ""}`}
+                        title={`Click to load: ${session.filename}${depth > 0 ? ` (Fork Level ${depth} / 5)` : ""}`}
                         style={{
                           padding: isChild ? "5px 7px" : "7px 9px",
                           borderRadius: 6,
@@ -1179,8 +1181,14 @@ export function App() {
                                 <MessageSquare size={13} color="var(--accent)" style={{ flexShrink: 0 }} />
                               ) : depth === 1 ? (
                                 <GitFork size={13} color="#a855f7" style={{ flexShrink: 0 }} />
-                              ) : (
+                              ) : depth === 2 ? (
                                 <GitFork size={13} color="#ec4899" style={{ flexShrink: 0 }} />
+                              ) : depth === 3 ? (
+                                <GitFork size={13} color="#14b8a6" style={{ flexShrink: 0 }} />
+                              ) : depth === 4 ? (
+                                <GitFork size={13} color="#f59e0b" style={{ flexShrink: 0 }} />
+                              ) : (
+                                <GitFork size={13} color="#ef4444" style={{ flexShrink: 0 }} />
                               )}
                               <span
                                 style={{

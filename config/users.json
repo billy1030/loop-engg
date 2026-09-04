@@ -12,7 +12,7 @@
     "recoveryCodesHashed": [],
     "usedTotpHashes": [],
     "createdAt": "2026-09-04T04:01:05.047Z",
-    "lastLoginAt": "2026-09-04T04:05:10.057Z",
+    "lastLoginAt": "2026-09-04T04:54:52.708Z",
     "pendingTotpSecret": "VEFZBWPHNYI6DKBJ2JJD3YELEZMLRC7M",
     "pendingRecoveryCodesHashed": [
       "83f502d9168e0fd6c00ee464e2d41b5cd5d316e75017756a90be1d56c5fb4cf5",
@@ -26,5 +26,20 @@
       "30a586154fc012c0486958ce9c6cccebb5373f258bf7a578a07fcdaaa8bda307",
       "41616bd3c2c35a76f42d94ec89230a0a5a74e5ce71fdfc5a4fd0c81bac795886"
     ]
+  },
+  {
+    "id": 2,
+    "userNumber": "00001",
+    "username": "billy",
+    "displayName": "Billy Lam",
+    "passwordHash": "950b7c050323063571a62cdaa4daccbc:5abc9ded8b29c6287f0ef62ebf0f4879e0528e021c2f5df5c4fb7ad8bfb97b6c0b33c503665c84107d0a46fb5d19f7caa6834434139c4b707f3b807bd75d3d32",
+    "role": "user",
+    "isActive": true,
+    "totpSecret": null,
+    "totpEnabled": false,
+    "recoveryCodesHashed": [],
+    "usedTotpHashes": [],
+    "createdAt": "2026-09-04T04:53:26.767Z",
+    "lastLoginAt": "2026-09-04T04:53:45.238Z"
   }
 ]

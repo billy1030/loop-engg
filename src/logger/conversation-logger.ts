@@ -363,6 +363,7 @@ export interface ConversationSummary {
   preview: string;
   customTitle?: string;
   attachedDocCount?: number;
+  forkLevel?: number;
   clonedFrom?: {
     parentFilename: string;
     parentWorkspace?: string;
@@ -444,6 +445,23 @@ export function listConversationLogs(workspace: string = "default", baseDir: str
       console.warn(`[Conversation Logger] Failed to parse summary for ${filename}`);
     }
   }
+
+  // Precompute fork levels for efficient tree presentation
+  const filenameToSummary = new Map<string, ConversationSummary>();
+  results.forEach((r) => filenameToSummary.set(r.filename, r));
+
+  const computeDepth = (summary: ConversationSummary, visited = new Set<string>()): number => {
+    if (visited.has(summary.filename)) return 0;
+    visited.add(summary.filename);
+    if (!summary.clonedFrom?.parentFilename) return 0;
+    const parent = filenameToSummary.get(summary.clonedFrom.parentFilename);
+    if (!parent) return 1;
+    return 1 + computeDepth(parent, visited);
+  };
+
+  results.forEach((r) => {
+    r.forkLevel = computeDepth(r);
+  });
 
   return results.sort((a, b) => b.filename.localeCompare(a.filename));
 }
@@ -544,12 +562,34 @@ export function parseConversationLog(filename: string, workspace: string = "defa
     }
   }
 
+  // Extract Cloned From metadata if session was branched
+  let clonedFrom: any = undefined;
+  const cloneMatch = content.match(/- \*\*Cloned From\*\*: `([^`]+)`(?:\s*\((.*?)\))?/);
+  if (cloneMatch) {
+    const parentFilename = cloneMatch[1];
+    const extraInfo = cloneMatch[2] || "";
+    const wsMatch = extraInfo.match(/Workspace:\s*([^,)]+)/);
+    const turnMatch = extraInfo.match(/Turn\s*(\d+)/);
+    const modeMatch = extraInfo.match(/Mode:\s*([^,)]+)/);
+
+    clonedFrom = {
+      parentFilename,
+      parentWorkspace: wsMatch ? wsMatch[1].trim() : workspace,
+      turnIndex: turnMatch ? parseInt(turnMatch[1], 10) : undefined,
+      mode: modeMatch ? modeMatch[1].trim() : undefined,
+    };
+  }
+
+  const forkLevel = getConversationForkLevel(filename, workspace, baseDir, userNumber);
+
   return {
     filename: safeFilename,
     workspace,
     title: customTitle || safeFilename,
     messages,
     attachedDocHashes,
+    clonedFrom,
+    forkLevel,
   };
 }
 
@@ -584,7 +624,33 @@ export function renameConversationLog(
 }
 
 /**
- * Clones / forks a specific turn into a new independent session log file
+ * Computes the fork/nesting depth of a conversation session log (0 for root, 1 for 1st fork, etc.)
+ */
+export function getConversationForkLevel(
+  filename: string,
+  workspace: string = "default",
+  baseDir: string = "logs",
+  userNumber: string = "00000",
+  visited: Set<string> = new Set()
+): number {
+  if (!filename || visited.has(filename)) return 0;
+  visited.add(filename);
+
+  try {
+    const parsed = parseConversationLog(filename, workspace, baseDir, userNumber);
+    if (!parsed.clonedFrom?.parentFilename) {
+      return 0;
+    }
+    const parentWs = parsed.clonedFrom.parentWorkspace || workspace || "default";
+    return 1 + getConversationForkLevel(parsed.clonedFrom.parentFilename, parentWs, baseDir, userNumber, visited);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Clones / forks a specific turn into a new independent session log file.
+ * Max fork level is strictly limited to 5.
  */
 export function cloneConversationTurn(
   filename: string,
@@ -595,9 +661,19 @@ export function cloneConversationTurn(
   customDocHashes?: string[],
   baseDir: string = "logs",
   userNumber: string = "00000"
-): { newFilename: string; title: string; workspace: string; attachedDocHashes: string[] } {
+): { newFilename: string; title: string; workspace: string; attachedDocHashes: string[]; forkLevel: number } {
   ensureWorkspaceMigration(baseDir, userNumber);
   const parsed = parseConversationLog(filename, workspace, baseDir, userNumber);
+
+  // Check and enforce maximum fork level of 5
+  const currentForkLevel = getConversationForkLevel(filename, workspace, baseDir, userNumber);
+  const nextForkLevel = currentForkLevel + 1;
+  const MAX_FORK_LEVEL = 5;
+
+  if (nextForkLevel > MAX_FORK_LEVEL) {
+    throw new Error(`Maximum fork level limit reached (${MAX_FORK_LEVEL}). Cannot fork deeper sub-conversations.`);
+  }
+
   const now = new Date();
   const newFilename = `${formatDateForFilename(now)}.md`;
   const destWorkspace = targetWorkspace || workspace || "default";
@@ -616,7 +692,7 @@ export function cloneConversationTurn(
 
   const firstUserMsg = targetMessages.find((m) => m.role === "user");
   const baseTitle = firstUserMsg ? firstUserMsg.content.slice(0, 40) : "Cloned Conversation";
-  const newTitle = `[Fork T#${turnIndex}] ${baseTitle}`;
+  const newTitle = `[Fork L#${nextForkLevel} T#${turnIndex}] ${baseTitle}`;
 
   const finalDocHashes = Array.isArray(customDocHashes) ? customDocHashes : (parsed.attachedDocHashes || []);
 

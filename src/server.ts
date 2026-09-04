@@ -68,12 +68,27 @@ async function initMCP() {
   const servers: Record<string, MCPServerDef> = {};
   for (const [key, def] of Object.entries(config.mcpServers)) {
     if (def.args?.[0]?.endsWith(".js")) {
+      const jsPath = path.resolve(process.cwd(), def.args[0]);
       const tsPath = def.args[0].replace(/^dist\//, "src/").replace(/\.js$/, ".ts");
-      servers[key] = {
-        ...def,
-        command: "npx",
-        args: ["tsx", tsPath],
-      };
+      const fullTsPath = path.resolve(process.cwd(), tsPath);
+
+      if (fs.existsSync(jsPath)) {
+        // Built JS exists (standalone deployment mode)
+        servers[key] = {
+          ...def,
+          command: "node",
+          args: [jsPath],
+        };
+      } else if (fs.existsSync(fullTsPath)) {
+        // Fall back to tsx in development mode
+        servers[key] = {
+          ...def,
+          command: "npx",
+          args: ["tsx", tsPath],
+        };
+      } else {
+        servers[key] = { ...def };
+      }
     } else {
       servers[key] = { ...def };
     }

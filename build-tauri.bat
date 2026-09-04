@@ -39,7 +39,7 @@ if %errorlevel% neq 0 (
 
 :: 4. Locate and Copy compiled executable & installers to c:\ai\minibot
 echo.
-echo [3/3] Deploying compiled binaries to c:\ai\minibot ...
+echo [3/4] Deploying compiled binaries to c:\ai\minibot ...
 
 :: Copy minibot.exe (or app.exe)
 if exist "src-tauri\target\release\minibot.exe" (
@@ -61,6 +61,34 @@ if exist "src-tauri\target\release\bundle\msi\minibot_0.1.0_x64_en-US.msi" (
     copy /y "src-tauri\target\release\bundle\msi\minibot_0.1.0_x64_en-US.msi" "c:\ai\minibot\minibot.msi" >nul
     echo   [+] Copied MSI package to c:\ai\minibot\minibot.msi
 )
+
+:: 5. Copy Backend runtime assets ignoring logs and secret API keys
+echo.
+echo [4/4] Deploying clean backend assets (excluding logs and private keys)...
+
+:: Ensure target runtime subdirectories
+if not exist "c:\ai\minibot\dist" mkdir "c:\ai\minibot\dist"
+if not exist "c:\ai\minibot\frontend\dist" mkdir "c:\ai\minibot\frontend\dist"
+
+:: Copy compiled backend dist
+xcopy /e /y /i /q "dist" "c:\ai\minibot\dist" >nul
+echo   [+] Copied backend dist/
+
+:: Copy frontend dist bundle
+xcopy /e /y /i /q "frontend\dist" "c:\ai\minibot\frontend\dist" >nul
+echo   [+] Copied frontend dist/
+
+:: Copy configuration template and package.json
+copy /y "package.json" "c:\ai\minibot\package.json" >nul
+copy /y "loop.config.json" "c:\ai\minibot\loop.config.json" >nul
+copy /y ".env.example" "c:\ai\minibot\.env.example" >nul
+echo   [+] Copied clean config and .env.example template
+
+:: IMPORTANT: We specifically DO NOT copy:
+::  - .env (to avoid exposing private API keys)
+::  - logs/ or *.log (so the standalone app starts with its own clean logs)
+::  - config/sessions.json (so no prior session data leaks)
+
 
 echo.
 echo ===================================================

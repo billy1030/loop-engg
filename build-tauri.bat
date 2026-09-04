@@ -1,9 +1,9 @@
 @echo off
 chcp 65001 >nul
-title MiniBot - Tauri Compiler & Deployer
+title MiniBot - Tauri Compiler and Deployer
 
 echo ===================================================
-echo       MiniBot Tauri Compiler & Auto-Deployer
+echo       MiniBot Tauri Compiler and Auto-Deployer
 echo ===================================================
 echo.
 
@@ -64,7 +64,7 @@ if exist "src-tauri\target\release\bundle\msi\minibot_0.1.0_x64_en-US.msi" (
 
 echo.
 echo ===================================================
-echo   Compilation & Deployment Completed Successfully!
+echo   Compilation and Deployment Completed Successfully!
 echo   Target Location: c:\ai\minibot\minibot.exe
 echo ===================================================
 echo.

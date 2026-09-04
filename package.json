@@ -1,13 +1,16 @@
 {
-  "name": "loop-engg",
+  "name": "minibot",
   "version": "1.0.0",
-  "description": "Loop Engineering Chatbot with Model Context Protocol (MCP)",
+  "description": "MiniBot - Autonomous Assistant with Model Context Protocol",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
     "cli": "tsx src/cli/index.ts",
-    "test": "tsx test/test-loop.ts"
+    "test": "tsx test/test-loop.ts",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "keywords": [
     "mcp",

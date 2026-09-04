@@ -6,4 +6,4 @@ dist
 logs/
 storage/
 config/sessions.json
-
+src-tauri/target/

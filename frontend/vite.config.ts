@@ -16,7 +16,7 @@ export default defineConfig({
     __COMMIT_HASH__: JSON.stringify(commitHash),
   },
   server: {
-    port: 7009,
+    port: 5173,
     host: true,
     proxy: {
       '/api': 'http://localhost:7009',

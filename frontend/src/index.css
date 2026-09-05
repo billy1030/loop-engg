@@ -519,27 +519,30 @@ html.warm .mm-group-text.indigo {
   color: #9d6824 !important;
 }
 
-/* SLS Standalone Purple Fit Margin button */
+/* Fit Margin button (Normal Color) */
 .mm-btn-fit {
   height: 28px !important;
   width: 28px !important;
+  min-width: 28px !important;
   border-radius: 8px !important;
-  border: 1px solid #4f46e5 !important;
-  background: #4f46e5 !important;
-  color: #ffffff !important;
+  border: 1px solid var(--border-color, #e2e8f0) !important;
+  background: #ffffff !important;
+  color: #475569 !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 1px 2px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   flex-shrink: 0;
   padding: 0 !important;
+  user-select: none;
 }
 
 .mm-btn-fit:hover {
-  background: #4338ca !important;
-  border-color: #4338ca !important;
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 .mm-btn-fit:active {
@@ -547,32 +550,30 @@ html.warm .mm-group-text.indigo {
 }
 
 .mm-btn-fit.inactive {
-  background: #ffffff !important;
-  border-color: var(--border-color, #e2e8f0) !important;
-  color: #64748b !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  opacity: 0.5 !important;
 }
 
-html.dark .mm-btn-fit.inactive {
+html.dark .mm-btn-fit {
   background: rgba(15, 23, 42, 0.8) !important;
   border-color: #334155 !important;
   color: #94a3b8 !important;
 }
 
-html.warm .mm-btn-fit.inactive {
+html.dark .mm-btn-fit:hover {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+html.warm .mm-btn-fit {
   background: #fbf7ee !important;
   border-color: #e6dcbc !important;
   color: #786a55 !important;
 }
 
-.mm-btn-fit.inactive:hover {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
-}
-
-html.dark .mm-btn-fit.inactive:hover {
-  background: #1e293b !important;
-  color: #f1f5f9 !important;
+html.warm .mm-btn-fit:hover {
+  background: #ede2cb !important;
+  color: #382e21 !important;
 }
 
 .mermaid-card-wrapper {

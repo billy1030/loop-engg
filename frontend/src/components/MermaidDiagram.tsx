@@ -732,7 +732,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ code, index = 0 
             className={`mm-btn-fit ${isReduceMargin ? '' : 'inactive'}`}
             title={`${isReduceMargin ? 'Margin Fitted' : 'Fit Margin'}: Detect & reduce vertical margin space for current zoom (${Math.round(inlineScale * 100)}%)`}
           >
-            <ChevronsDownUp className="w-3.5 h-3.5" />
+            <ChevronsDownUp className="w-3.5 h-3.5" style={{ color: '#475569' }} />
           </button>
 
           {/* 📐 4:3 展開外框切換按鈕 (Icon-only) */}

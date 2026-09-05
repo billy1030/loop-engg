@@ -26,6 +26,18 @@ export const AlertModal: React.FC<ModalAlertProps> = ({
   onCancel,
   onClose,
 }) => {
+  // Listen for Escape key to close modal
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isConfirm && onCancel) onCancel();
+        else onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isConfirm, onCancel, onClose]);
+
   const getTheme = () => {
     switch (type) {
       case "error":

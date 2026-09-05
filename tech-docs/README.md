@@ -20,6 +20,7 @@ Welcome to the **MiniBot** technical documentation. This directory provides in-d
 | [12. Workspace Architecture, Multi-Tier Sub-Conversations & Attachment Isolation](./12-workspace-and-conversation-tree-architecture.md) | Zero-database disk hierarchy, folder-based workspaces, recursive multi-tier fork tree, orphan fallback algorithm, and CAS attachment isolation. |
 | [13. Multi-User System, Folder Isolation & 2FA Architecture](./13-multi-user-system-and-2fa-architecture.md) | Enterprise multi-tenant isolation, Scrypt hashing, RFC 6238 TOTP 2FA, emergency recovery codes, and rate-limiting lockout. |
 | [14. Outlook-Style Interface & Visual Design Architecture](./14-outlook-interface-design-architecture.md) | Visual design tokens, layout hierarchy, native Segoe UI typography, SLS-style user dropdown popover, and inline editing data grids. |
+| [15. Cross-Platform Session Deletion & Performance Optimization Architecture](./15-cross-platform-session-deletion-and-performance.md) | Technical autopsy of macOS WebKit vs. Windows Chromium DOM and SVG performance, localhost loopback socket latency, APFS lock patterns, real-time deletion spinner, and silent parallel sync. |
 
 ---
 

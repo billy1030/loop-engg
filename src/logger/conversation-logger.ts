@@ -68,10 +68,18 @@ export interface WorkspaceSummary {
   lastUpdated?: string;
 }
 
+const migratedUsers = new Set<string>();
+
 /**
  * Ensures existing legacy session files in logs/ root or logs/default are migrated into logs/00000/default/
  */
 export function ensureWorkspaceMigration(baseDir: string = "logs", userNumber: string = "00000") {
+  const cacheKey = `${baseDir}:${userNumber}`;
+  if (migratedUsers.has(cacheKey)) {
+    return;
+  }
+  migratedUsers.add(cacheKey);
+
   const logsRoot = path.resolve(process.cwd(), baseDir);
   if (!fs.existsSync(logsRoot)) {
     fs.mkdirSync(logsRoot, { recursive: true });
@@ -842,6 +850,19 @@ export function deleteConversationLog(filename: string, workspace: string = "def
   if (fs.existsSync(fullPath)) {
     fs.unlinkSync(fullPath);
     console.log(`[Conversation Logger] 🗑️ Deleted conversation log: logs/${userNumber}/${workspace}/${safeFilename}`);
+
+    // Clean up session-order.json if present
+    const orderFilePath = path.join(getWorkspaceDir(workspace, baseDir, userNumber), "session-order.json");
+    if (fs.existsSync(orderFilePath)) {
+      try {
+        const orderList = JSON.parse(fs.readFileSync(orderFilePath, "utf-8"));
+        if (Array.isArray(orderList)) {
+          const filtered = orderList.filter((f) => f !== safeFilename);
+          fs.writeFileSync(orderFilePath, JSON.stringify(filtered, null, 2), "utf-8");
+        }
+      } catch (e) {}
+    }
+
     return true;
   }
   return false;

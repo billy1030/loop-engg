@@ -168,6 +168,8 @@ export function App() {
   const [subConvModalFile, setSubConvModalFile] = useState<string | null>(null);
   const [draggedSessionKey, setDraggedSessionKey] = useState<string | null>(null);
   const [dragOverSessionKey, setDragOverSessionKey] = useState<string | null>(null);
+  const [deletingSessionFile, setDeletingSessionFile] = useState<string | null>(null);
+  const [isDeletingWs, setIsDeletingWs] = useState<boolean>(false);
   const [showMermaidMenu, setShowMermaidMenu] = useState<boolean>(false);
   const mermaidMenuRef = useRef<HTMLDivElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -311,13 +313,13 @@ export function App() {
     showConfirm(
       `Are you sure you want to delete workspace "${wsName}" and all its saved sessions?`,
       async () => {
+        setIsDeletingWs(true);
         try {
           const res = await fetch(`/api/workspaces/${encodeURIComponent(wsName)}`, {
             method: "DELETE",
           });
           const data = await res.json();
           if (res.ok && data.success) {
-            showAlert(`Workspace "${wsName}" deleted.`, "success");
             await fetchWorkspaces();
             if (currentWorkspace === wsName) {
               switchWorkspace("default");
@@ -327,6 +329,8 @@ export function App() {
           }
         } catch (err: any) {
           showAlert(`Error deleting workspace: ${err.message || err}`, "error");
+        } finally {
+          setIsDeletingWs(false);
         }
       },
       "Delete Workspace"
@@ -451,24 +455,37 @@ export function App() {
     showConfirm(
       `Are you sure you want to permanently delete this conversation history?\nWorkspace: ${currentWorkspace}\nFilename: ${filename}\n\nThis action will remove it permanently from disk and cannot be undone!`,
       async () => {
+        // Set deletion waiting state so the session card displays a spinner icon
+        setDeletingSessionFile(filename);
+
+        // If the deleted session is currently active on screen, clear it immediately
+        if (activeSessionFile === filename) {
+          startNewChat();
+        }
+
         try {
           const res = await fetch(
             `/api/logs/${encodeURIComponent(filename)}?workspace=${encodeURIComponent(currentWorkspace)}`,
             { method: "DELETE" }
           );
+
           if (res.ok) {
-            if (activeSessionFile === filename) {
-              startNewChat();
-            }
-            await fetchLogs(currentWorkspace);
-            await fetchWorkspaces();
-            showAlert("Conversation history deleted successfully.", "success", "Deleted Successfully");
+            // Re-sync logs and workspaces in parallel in the background
+            await Promise.all([
+              fetchLogs(currentWorkspace),
+              fetchWorkspaces(),
+            ]);
           } else {
             const data = await res.json();
+            // Revert list on failure
+            await fetchLogs(currentWorkspace);
             showAlert(`Delete failed: ${data.error || "Unknown error"}`, "error", "Delete Failed");
           }
         } catch (err: any) {
+          await fetchLogs(currentWorkspace);
           showAlert(`Delete request error: ${err.message}`, "error", "Request Error");
+        } finally {
+          setDeletingSessionFile(null);
         }
       },
       "Permanent Delete Confirmation",
@@ -981,22 +998,31 @@ export function App() {
                 {/* Delete Workspace Icon Button */}
                 <button
                   onClick={(e) => handleDeleteWorkspace(e, currentWorkspace)}
-                  title="Delete current workspace folder"
+                  disabled={isDeletingWs}
+                  title={isDeletingWs ? "Deleting workspace..." : "Delete current workspace folder"}
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
+                    color: isDeletingWs ? "#ef4444" : "var(--text-muted)",
+                    cursor: isDeletingWs ? "not-allowed" : "pointer",
                     padding: "4px",
                     borderRadius: 4,
                     display: "inline-flex",
                     alignItems: "center",
                     transition: "color 0.15s",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+                  onMouseEnter={(e) => {
+                    if (!isDeletingWs) e.currentTarget.style.color = "#ef4444";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDeletingWs) e.currentTarget.style.color = "var(--text-muted)";
+                  }}
                 >
-                  <Trash2 size={13} />
+                  {isDeletingWs ? (
+                    <Loader2 size={13} className="spin" color="#ef4444" />
+                  ) : (
+                    <Trash2 size={13} />
+                  )}
                 </button>
               </>
             )}
@@ -1167,19 +1193,20 @@ export function App() {
 
                   const isDraggingThis = draggedSessionKey === session.filename;
                   const isDragOverThis = dragOverSessionKey === session.filename;
+                  const isDeletingThis = deletingSessionFile === session.filename;
 
                   return (
                     <div
                       key={session.filename}
-                      draggable={editingSessionFile !== session.filename}
+                      draggable={editingSessionFile !== session.filename && !isDeletingThis}
                       onDragStart={(e) => {
-                        if (editingSessionFile === session.filename) return;
+                        if (editingSessionFile === session.filename || isDeletingThis) return;
                         setDraggedSessionKey(session.filename);
                         e.dataTransfer.effectAllowed = "move";
                         e.dataTransfer.setData("text/plain", session.filename);
                       }}
                       onDragOver={(e) => {
-                        if (!draggedSessionKey || draggedSessionKey === session.filename) return;
+                        if (!draggedSessionKey || draggedSessionKey === session.filename || isDeletingThis) return;
                         e.preventDefault();
                         e.dataTransfer.dropEffect = "move";
                         if (dragOverSessionKey !== session.filename) {
@@ -1193,7 +1220,7 @@ export function App() {
                       }}
                       onDrop={(e) => {
                         e.preventDefault();
-                        if (!draggedSessionKey || draggedSessionKey === session.filename) {
+                        if (!draggedSessionKey || draggedSessionKey === session.filename || isDeletingThis) {
                           setDraggedSessionKey(null);
                           setDragOverSessionKey(null);
                           return;
@@ -1219,7 +1246,8 @@ export function App() {
                         display: "flex",
                         flexDirection: "column",
                         gap: 2,
-                        opacity: isDraggingThis ? 0.4 : 1,
+                        opacity: isDeletingThis ? 0.45 : isDraggingThis ? 0.4 : 1,
+                        pointerEvents: isDeletingThis ? "none" : "auto",
                         transition: "opacity 0.15s ease",
                       }}
                     >
@@ -1498,29 +1526,38 @@ export function App() {
                                 {/* Delete Icon Button */}
                                 <button
                                   onClick={(e) => deleteSession(e, session.filename)}
-                                  title="Delete this session"
+                                  disabled={isDeletingThis}
+                                  title={isDeletingThis ? "Deleting session..." : "Delete this session"}
                                   style={{
                                     background: "transparent",
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: isDeletingThis ? "not-allowed" : "pointer",
                                     padding: "2px 3px",
                                     borderRadius: 4,
                                     display: "inline-flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    color: "var(--text-muted)",
+                                    color: isDeletingThis ? "#ef4444" : "var(--text-muted)",
                                     transition: "color 0.15s, background-color 0.15s",
                                   }}
                                   onMouseEnter={(e) => {
-                                    e.currentTarget.style.color = "#ef4444";
-                                    e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                                    if (!isDeletingThis) {
+                                      e.currentTarget.style.color = "#ef4444";
+                                      e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                                    }
                                   }}
                                   onMouseLeave={(e) => {
-                                    e.currentTarget.style.color = "var(--text-muted)";
-                                    e.currentTarget.style.backgroundColor = "transparent";
+                                    if (!isDeletingThis) {
+                                      e.currentTarget.style.color = "var(--text-muted)";
+                                      e.currentTarget.style.backgroundColor = "transparent";
+                                    }
                                   }}
                                 >
-                                  <Trash2 size={11.5} />
+                                  {isDeletingThis ? (
+                                    <Loader2 size={11.5} className="spin" color="#ef4444" />
+                                  ) : (
+                                    <Trash2 size={11.5} />
+                                  )}
                                 </button>
                               </div>
                             )}

@@ -449,7 +449,7 @@ export function App() {
   const deleteSession = async (e: React.MouseEvent, filename: string) => {
     e.stopPropagation(); // prevent triggering loadSession
     showConfirm(
-      `確定要刪除以下歷史會話記錄嗎？\n工作區: ${currentWorkspace}\n檔名: ${filename}\n\n此操作將從磁碟永久移除，無法復原！`,
+      `Are you sure you want to permanently delete this conversation history?\nWorkspace: ${currentWorkspace}\nFilename: ${filename}\n\nThis action will remove it permanently from disk and cannot be undone!`,
       async () => {
         try {
           const res = await fetch(
@@ -462,17 +462,17 @@ export function App() {
             }
             await fetchLogs(currentWorkspace);
             await fetchWorkspaces();
-            showAlert("會話記錄已成功刪除。", "success", "刪除成功");
+            showAlert("Conversation history deleted successfully.", "success", "Deleted Successfully");
           } else {
             const data = await res.json();
-            showAlert(`刪除失敗: ${data.error || "Unknown error"}`, "error", "刪除失敗");
+            showAlert(`Delete failed: ${data.error || "Unknown error"}`, "error", "Delete Failed");
           }
         } catch (err: any) {
-          showAlert(`刪除請求出錯: ${err.message}`, "error", "請求錯誤");
+          showAlert(`Delete request error: ${err.message}`, "error", "Request Error");
         }
       },
-      "永久刪除確認",
-      "確認刪除"
+      "Permanent Delete Confirmation",
+      "Confirm Delete"
     );
   };
 
@@ -510,7 +510,7 @@ export function App() {
         setMcpJsonError(null);
       } catch (jsonErr: any) {
         setMcpJsonError(jsonErr.message);
-        showAlert(`MCP JSON 語法無效，請修正後再儲存：\n${jsonErr.message}`, "error", "JSON 語法錯誤");
+        showAlert(`Invalid MCP JSON syntax, please correct it before saving:\n${jsonErr.message}`, "error", "JSON Syntax Error");
         return;
       }
     }
@@ -528,11 +528,11 @@ export function App() {
       });
       if (res.ok) {
         setConfig(payload);
-        showAlert("系統配置與 MCP 伺服器已成功儲存並完成熱重載！", "success", "配置儲存成功");
+        showAlert("Configuration and MCP servers saved and hot-reloaded successfully!", "success", "Configuration Saved");
         setShowConfig(false);
       }
     } catch (err: any) {
-      showAlert(`儲存設定失敗: ${err.message || "網路錯誤"}`, "error", "儲存失敗");
+      showAlert(`Failed to save settings: ${err.message || "Network error"}`, "error", "Save Failed");
     }
   };
 
@@ -2748,12 +2748,12 @@ export function App() {
             )}
           </button>
 
-          {/* 📊 Mermaid 架構流程圖快捷按鈕 */}
+          {/* 📊 Mermaid Architecture Diagram Quick Action */}
           <div style={{ position: "relative" }}>
             <button
               type="button"
               onClick={() => setShowMermaidMenu((v) => !v)}
-              title="插入或要求生成 Mermaid 架構流程圖"
+              title="Insert or request Mermaid architecture diagram"
               style={{
                 padding: "11px 14px",
                 borderRadius: 8,
@@ -2786,7 +2786,7 @@ export function App() {
                   borderRadius: 12,
                   padding: 8,
                   boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
-                  minWidth: 265,
+                  minWidth: 280,
                   display: "flex",
                   flexDirection: "column",
                   gap: 4,
@@ -2804,7 +2804,7 @@ export function App() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <span>📊 Mermaid 架構圖生成器</span>
+                  <span>📊 Mermaid Diagram Generator</span>
                   <span
                     style={{
                       fontSize: 10,
@@ -2815,7 +2815,7 @@ export function App() {
                       fontWeight: 700,
                     }}
                   >
-                    一鍵套用
+                    Quick Apply
                   </span>
                 </div>
 
@@ -2823,7 +2823,7 @@ export function App() {
                   type="button"
                   onClick={() =>
                     handleInsertMermaid(
-                      "請以 Mermaid 流程圖語法（flowchart TD）繪製系統架構，包含詳細節點分支、步驟說明與處理邏輯。"
+                      "Please draw the system architecture using Mermaid flowchart syntax (flowchart TD), including detailed node branches, step descriptions, and processing logic."
                     )
                   }
                   style={{
@@ -2845,8 +2845,8 @@ export function App() {
                 >
                   <span style={{ fontSize: 16 }}>🔀</span>
                   <div>
-                    <div style={{ fontWeight: 600 }}>架構流程圖 (Flowchart)</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>詳細節點分支與業務決策判斷</div>
+                    <div style={{ fontWeight: 600 }}>Architecture Flowchart</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Node branching and logic flows</div>
                   </div>
                 </button>
 
@@ -2854,7 +2854,7 @@ export function App() {
                   type="button"
                   onClick={() =>
                     handleInsertMermaid(
-                      "請以 Mermaid 循序圖語法（sequenceDiagram）繪製各服務與模組之間的時序調用與握手流程。"
+                      "Please draw the interaction flow using Mermaid sequence diagram syntax (sequenceDiagram), showing sequence handshakes and call chains between services."
                     )
                   }
                   style={{
@@ -2876,8 +2876,8 @@ export function App() {
                 >
                   <span style={{ fontSize: 16 }}>⏱️</span>
                   <div>
-                    <div style={{ fontWeight: 600 }}>循序時序圖 (Sequence)</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>微服務請求握手與調用鏈</div>
+                    <div style={{ fontWeight: 600 }}>Sequence Diagram</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Service handshakes and call chains</div>
                   </div>
                 </button>
 
@@ -2885,7 +2885,7 @@ export function App() {
                   type="button"
                   onClick={() =>
                     handleInsertMermaid(
-                      "請以 Mermaid 拓撲圖語法繪製系統叢集架構，包含 subgraph 子群組邊界與數據流向。"
+                      "Please draw the cluster architecture using Mermaid syntax, including subgraph partition boundaries and data flows."
                     )
                   }
                   style={{
@@ -2907,8 +2907,8 @@ export function App() {
                 >
                   <span style={{ fontSize: 16 }}>🏛️</span>
                   <div>
-                    <div style={{ fontWeight: 600 }}>叢集拓撲圖 (Topology)</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>包含子群組 subgraph 隔離區塊</div>
+                    <div style={{ fontWeight: 600 }}>Cluster Topology</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Subgraph boundaries and data flows</div>
                   </div>
                 </button>
 
@@ -2916,7 +2916,7 @@ export function App() {
                   type="button"
                   onClick={() =>
                     handleInsertMermaid(
-                      "請以 Mermaid 心智圖語法（mindmap）拆解核心概念、模組職責與技術要點。"
+                      "Please break down core concepts, module responsibilities, and technical key points using Mermaid mindmap syntax."
                     )
                   }
                   style={{
@@ -2938,8 +2938,8 @@ export function App() {
                 >
                   <span style={{ fontSize: 16 }}>🧠</span>
                   <div>
-                    <div style={{ fontWeight: 600 }}>概念心智圖 (Mindmap)</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>輻射狀技術體系梳理</div>
+                    <div style={{ fontWeight: 600 }}>Concept Mindmap</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Hierarchical technical structure</div>
                   </div>
                 </button>
 
@@ -2949,7 +2949,7 @@ export function App() {
                   type="button"
                   onClick={() =>
                     handleInsertMermaid(
-                      '```mermaid\nflowchart TD\n  Client["客戶端 Client"] --> GW["API Gateway"]\n  GW --> S1["微服務 Service A"]\n  GW --> S2["微服務 Service B"]\n  S1 --> DB[("資料庫 Database")]\n```\n',
+                      '```mermaid\nflowchart TD\n  Client["Client"] --> GW["API Gateway"]\n  GW --> S1["Service A"]\n  GW --> S2["Service B"]\n  S1 --> DB[("Database")]\n```\n',
                       true
                     )
                   }
@@ -2972,8 +2972,8 @@ export function App() {
                 >
                   <span style={{ fontSize: 16 }}>📋</span>
                   <div>
-                    <div style={{ fontWeight: 600 }}>插入代碼範本 (Snippet)</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>直接插入完整 Mermaid 原始碼區塊</div>
+                    <div style={{ fontWeight: 600 }}>Insert Code Snippet</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Directly insert complete Mermaid code</div>
                   </div>
                 </button>
               </div>

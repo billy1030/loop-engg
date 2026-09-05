@@ -25,7 +25,7 @@ const sanitized = sanitizeMermaidCode(badCode);
 console.log('Test 3 (Sanitized Code):\n' + sanitized);
 if (!sanitized.includes('A["未帶引號')) throw new Error('Test 3 failed to quote A');
 if (!sanitized.includes('B{"判定點')) throw new Error('Test 3 failed to quote B');
-if (!sanitized.includes('系統轉移 到 升級')) throw new Error('Test 3 failed to replace arrow');
+if (!sanitized.includes('系統轉移 to 升級')) throw new Error('Test 3 failed to replace arrow');
 
 // 4. Test generateStandaloneExportHtml
 const sampleMd = `

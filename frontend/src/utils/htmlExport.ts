@@ -502,8 +502,8 @@ export function generateStandaloneExportHtml(markdownContent: string, title: str
       // 修復箭頭與連線標籤
       l = l.replace(/--\\s+([^"\\n\\-]+?[\\(\\)\\?\\:\\/\\s\\uff08\\uff09][^"\\n\\-]+?)\\s+-->/g, '-- "$1" -->');
       l = l.replace(/-->\\|([^"\\|\\n]+?[\\(\\)\\?\\:\\/\\s\\uff08\\uff09][^"\\|\\n]+?)\\|/g, '-->|"$1"|');
-      l = l.replace(/(\\[[^\\]]*?)\\s*->\\s*([^\\s\\]]*.*?\\])/g, function(m, before, after) { return before.replace(/\\s+$/, '') + ' 到 ' + after.replace(/^\\s+/, ''); });
-      l = l.replace(/(\\{[^\\}]*?)\\s*->\\s*([^\\s\\}]*.*?\\})/g, function(m, before, after) { return before.replace(/\\s+$/, '') + ' 到 ' + after.replace(/^\\s+/, ''); });
+      l = l.replace(/(\\[[^\\]]*?)\\s*->\\s*([^\\s\\]]*.*?\\])/g, function(m, before, after) { return before.replace(/\\s+$/, '') + ' to ' + after.replace(/^\\s+/, ''); });
+      l = l.replace(/(\\{[^\\}]*?)\\s*->\\s*([^\\s\\}]*.*?\\})/g, function(m, before, after) { return before.replace(/\\s+$/, '') + ' to ' + after.replace(/^\\s+/, ''); });
 
       return l;
     });

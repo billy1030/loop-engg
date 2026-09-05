@@ -158,15 +158,15 @@ export const UploadDocModal: React.FC<UploadDocModalProps> = ({
 
   const handleDetachFromSession = (doc: DocumentItem) => {
     showConfirm(
-      `確定要將此附件從「當前會話」移除嗎？\n\n檔名: ${doc.originalName}`,
+      `Are you sure you want to remove this attachment from the current session?\n\nFilename: ${doc.originalName}`,
       () => {
         onRemoveDocHash(doc.hash);
         if (selectedPreview?.hash === doc.hash) {
           setSelectedPreview(null);
         }
       },
-      "移除附件確認",
-      "確認移除"
+      "Remove Attachment Confirmation",
+      "Confirm Remove"
     );
   };
 

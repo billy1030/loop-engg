@@ -137,9 +137,9 @@ export function sanitizeMermaidCode(code: string): string {
     l = l.replace(/--\s+([^"\n\-]+?[\(\)\?\:\/\s\uff08\uff09][^"\n\-]+?)\s+-->/g, '-- "$1" -->');
     l = l.replace(/-->\|([^"\|\n]+?[\(\)\?\:\/\s\uff08\uff09][^"\|\n]+?)\|/g, '-->|"$1"|');
 
-    // 6. 替換節點或標籤文字內可能存在的箭頭符號 (避免破壞流程圖箭頭解析)
-    l = l.replace(/(\[[^\]]*?)\s*->\s*([^\]]*?\])/g, (_m, before, after) => `${before.trimEnd()} 到 ${after.trimStart()}`);
-    l = l.replace(/(\{[^}]*?)\s*->\s*([^}]*?\})/g, (_m, before, after) => `${before.trimEnd()} 到 ${after.trimStart()}`);
+    // 6. Replace arrow symbols inside node labels to prevent syntax breaking
+    l = l.replace(/(\[[^\]]*?)\s*->\s*([^\]]*?\])/g, (_m, before, after) => `${before.trimEnd()} to ${after.trimStart()}`);
+    l = l.replace(/(\{[^}]*?)\s*->\s*([^}]*?\})/g, (_m, before, after) => `${before.trimEnd()} to ${after.trimStart()}`);
 
     return l;
   });

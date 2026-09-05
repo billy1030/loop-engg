@@ -165,7 +165,7 @@ export function SubConversationModal({
   const handleCloneTurn = async (mode: "single" | "up_to") => {
     if (!sessionFilename) return;
     if (isMaxForkReached) {
-      showAlert(`已達到分支最大層級上限 (Level ${MAX_FORK_LEVEL})，無法繼續向下 Fork。`, "warning", "Fork 限制");
+      showAlert(`Maximum fork level reached (Level ${MAX_FORK_LEVEL}), cannot fork further.`, "warning", "Fork Limit");
       return;
     }
     try {
@@ -188,9 +188,9 @@ export function SubConversationModal({
       }
 
       showAlert(
-        `子會話已成功 Fork 成獨立新會話！\n檔名: ${data.newFilename}\n分支層級: Level ${data.forkLevel || (forkLevel + 1)} / ${MAX_FORK_LEVEL} (附帶 ${selectedDocHashes.length} 個附件)`,
+        `Sub-conversation successfully forked as a new standalone session!\nFilename: ${data.newFilename}\nFork Level: Level ${data.forkLevel || (forkLevel + 1)} / ${MAX_FORK_LEVEL} (with ${selectedDocHashes.length} attachments)`,
         "success",
-        "Fork 成功"
+        "Fork Successful"
       );
       onClose();
       onCloneSuccess(data.newFilename);

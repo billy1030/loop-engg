@@ -110,7 +110,7 @@ graph TD
 
 ### 5-Tier Fork Level Constraint
 To maintain directory clarity and avoid runaway tree recursion, the system enforces a strict maximum fork depth of **5 levels**:
-- **Depth Calculation**: `getConversationForkLevel(filename)` traverses the session's `clonedFrom.parentFilename` ancestor chain.
+- **Depth Calculation**: `getConversationForkLevel(filename)` traverses the session's `clonedFrom.parentFilename` ancestor chain using an iterative, non-recursive header scanner (`readClonedFromMetadata`) that reads only the top 2KB of parent files without invoking full markdown parsing, eliminating any risk of circular recursion or stack exhaustion.
 - **Backend Rejection**: If `nextForkLevel > 5`, `/api/logs/:filename/clone-turn` rejects the request with an explicit error.
 - **Frontend Prevention**: When a Level 5 conversation is inspected in `SubConversationModal`, fork action buttons are automatically locked with a `Max Fork Level (5) Reached` badge.
 

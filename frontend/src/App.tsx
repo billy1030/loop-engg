@@ -2032,7 +2032,7 @@ export function App() {
               <Palette size={15} />
             </button>
 
-            {/* Export Entire Conversation as HTML */}
+            {/* Export Entire Conversation as HTML (Icon-Only, 32x32) */}
             <button
               onClick={() => {
                 const combinedMarkdown = messages
@@ -2049,16 +2049,16 @@ export function App() {
               }}
               title="Export complete chat session as standalone offline HTML report"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "6px 12px",
+                width: 32,
+                height: 32,
+                padding: 0,
                 borderRadius: 8,
                 background: "var(--bg-card)",
                 border: "1px solid var(--border-color)",
-                color: "var(--text-main)",
-                fontSize: 12,
-                fontWeight: 600,
+                color: "var(--text-muted)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
                 cursor: "pointer",
                 transition: "all 0.15s ease",
               }}
@@ -2068,10 +2068,10 @@ export function App() {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = "var(--border-color)";
-                e.currentTarget.style.color = "var(--text-main)";
+                e.currentTarget.style.color = "var(--text-muted)";
               }}
             >
-              <Download size={13} /> Export HTML
+              <Download size={15} />
             </button>
 
             {/* Separator */}

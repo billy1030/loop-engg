@@ -128,6 +128,67 @@ In the sidebar (`App.tsx`), the flat file list is transformed into a hierarchica
   - Descendants detect `!sessionMap.has(parentFilename)` and are **automatically promoted to a root conversation** without data loss.
   - No broken pointers, orphan errors, or cascade corruption.
 
+### 4.4 Incident Autopsy: Circular Mutual Recursion Lockup & Non-Recursive Header Scanner
+
+#### The Incident (Server Hang on Fork Inspection)
+When inspecting or detailing a forked session via `GET /api/logs/:filename`, the single-threaded Node.js server suddenly surged to **98.5% CPU** in an infinite loop, freezing the event loop and dropping all incoming HTTP requests.
+
+#### Root Cause Analysis
+```mermaid
+flowchart TD
+    A["HTTP GET /api/logs/:filename"] --> B["parseConversationLog()"]
+    B -->|"Line 648: compute fork depth"| C["getConversationForkLevel(filename)"]
+    C -->|"Line 705: inspect parent"| D["parseConversationLog(filename)"]
+    D -->|"Line 648: new Set() default"| C
+    style C fill:#fee2e2,stroke:#ef4444,stroke-width:2px
+    style D fill:#fee2e2,stroke:#ef4444,stroke-width:2px
+```
+1. **Unbounded Mutual Recursion**:
+   - `parseConversationLog()` attempted to populate the `forkLevel` property by calling `getConversationForkLevel(filename)`.
+   - `getConversationForkLevel()` attempted to determine whether the file had a parent by invoking `parseConversationLog(filename)`.
+   - Because `parseConversationLog` did not accept or forward the `visited` cycle detection set, each invocation initialized a fresh `new Set()`, completely bypassing recursion detection.
+   - For root files with no parents, the recursion ran until Node hit `RangeError: Maximum call stack size exceeded`, which was caught silently by an inner `catch { return 0 }`. However, for forked files containing an actual ancestor pointer, the mutual recursion branched across parent lookups, causing CPU spinning and thread starvation.
+2. **Backtick Delimiter Corruption**:
+   - When users forked a turn starting with code fences (e.g. ````mermaid`), the raw content was sliced directly into the markdown title: `- **Title**: \`[Fork L#1 T#1] ```mermaid\``. This created mismatched backtick delimiters in the file header.
+
+#### Architectural Solution: Decoupled Iterative Header Scanner
+To permanently eliminate circular dependency and CPU lockups, the fork depth calculator was completely decoupled from full log parsing:
+1. **Lightweight Header Reader (`readClonedFromMetadata`)**:
+   Instead of loading or parsing the entire multi-turn markdown body (messages, tool calls, thinking tags), a dedicated scanner opens the file descriptor and reads **only the first 2KB**:
+   ```typescript
+   const fd = fs.openSync(fullPath, "r");
+   const buffer = Buffer.alloc(2048);
+   const bytesRead = fs.readSync(fd, buffer, 0, 2048, 0);
+   fs.closeSync(fd);
+   ```
+2. **Iterative `while` Traversal**:
+   `getConversationForkLevel` is implemented as an iterative loop with a hard depth guard (`depth < 20`) and `visited` Set:
+   ```typescript
+   export function getConversationForkLevel(filename: string, workspace = "default", ...): number {
+     let depth = 0;
+     let currentFile = filename;
+     let currentWs = workspace;
+     const visited = new Set<string>();
+
+     while (currentFile && !visited.has(currentFile) && depth < 20) {
+       visited.add(currentFile);
+       const meta = readClonedFromMetadata(currentFile, currentWs, baseDir, userNumber);
+       if (!meta || !meta.parentFilename) break;
+       depth += 1;
+       currentFile = meta.parentFilename;
+       currentWs = meta.parentWorkspace || currentWs;
+     }
+     return depth;
+   }
+   ```
+3. **Zero-Overhead Short-Circuiting**:
+   In `parseConversationLog`, root conversations (`!clonedFrom`) bypass the traversal entirely:
+   ```typescript
+   const forkLevel = clonedFrom ? getConversationForkLevel(filename, workspace, baseDir, userNumber) : 0;
+   ```
+4. **Header Sanitization**:
+   In `cloneConversationTurn`, user prompts are sanitized with `.replace(/[`\r\n]+/g, " ")` before composing title tags, guaranteeing well-formed markdown headers.
+
 ---
 
 ## 5. Attachment Isolation, CAS Fallback & Cross-User State Purging

@@ -112,3 +112,20 @@ If a client aborts a request, closes the browser tab, or encounters an internal 
       }
     };
     ```
+
+---
+
+## 8. Challenge: Circular Mutual Recursion in Conversation Tree Traversal
+### Problem
+When users clicked or inspected forked sessions (cloned turns), the server's CPU spiked to 100% and stopped responding to all HTTP traffic:
+- `parseConversationLog()` called `getConversationForkLevel()`.
+- `getConversationForkLevel()` called `parseConversationLog()` on parent sessions without forwarding the recursion `visited` Set.
+- Each hop created a fresh `visited = new Set()`, triggering infinite mutual recursion that locked Node's single-threaded event loop.
+
+### Solution
+1. **Decoupled 2KB Header Scanner (`readClonedFromMetadata`)**:
+   - Depth calculation reads only the first 2KB of the markdown file header rather than parsing full conversation bodies.
+2. **Iterative Traversal with Hard Guards**:
+   - Replaced recursion with an iterative `while` loop, enforcing `visited` tracking and a maximum depth limit of 20.
+3. **Short-Circuit Root Sessions**:
+   - Sessions without a `clonedFrom` property evaluate to `forkLevel = 0` immediately with zero I/O overhead.

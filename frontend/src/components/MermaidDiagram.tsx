@@ -672,7 +672,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ code, index = 0 
           {/* 🎮 內聯直接控制按鈕組 (放大、縮小、復位 100%) */}
           <div className="mm-btn-group">
             <button
-              onClick={() => setInlineScale(s => Math.max(0.4, Number((s - 0.2).toFixed(2))))}
+              onClick={() => setInlineScale(s => Math.max(0.2, Number((s - 0.2).toFixed(2))))}
               className="mm-group-btn"
               title="Zoom out"
             >
@@ -834,7 +834,7 @@ export const MermaidDiagram: React.FC<MermaidDiagramProps> = ({ code, index = 0 
                 {/* 彈窗內縮放控制組 */}
                 <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
                   <button
-                    onClick={() => setInlineScale(s => Math.max(0.4, Number((s - 0.2).toFixed(2))))}
+                    onClick={() => setInlineScale(s => Math.max(0.2, Number((s - 0.2).toFixed(2))))}
                     className="p-1 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition cursor-pointer"
                     title="Zoom Out"
                   >

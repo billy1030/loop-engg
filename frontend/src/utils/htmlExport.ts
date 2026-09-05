@@ -766,7 +766,7 @@ export function generateStandaloneExportHtml(markdownContent: string, title: str
 
     if (zoomInBtn) {
       zoomInBtn.onclick = function() {
-        currentScale = Math.min(3.0, parseFloat((currentScale + 0.15).toFixed(2)));
+        currentScale = Math.min(5.0, parseFloat((currentScale + 0.15).toFixed(2)));
         if (resetBtn) resetBtn.textContent = Math.round(currentScale * 100) + '%';
         applyTransform();
       };
@@ -774,7 +774,7 @@ export function generateStandaloneExportHtml(markdownContent: string, title: str
 
     if (zoomOutBtn) {
       zoomOutBtn.onclick = function() {
-        currentScale = Math.max(0.3, parseFloat((currentScale - 0.15).toFixed(2)));
+        currentScale = Math.max(0.2, parseFloat((currentScale - 0.15).toFixed(2)));
         if (resetBtn) resetBtn.textContent = Math.round(currentScale * 100) + '%';
         applyTransform();
       };

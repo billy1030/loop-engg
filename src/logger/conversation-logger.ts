@@ -645,7 +645,7 @@ export function parseConversationLog(filename: string, workspace: string = "defa
     };
   }
 
-  const forkLevel = getConversationForkLevel(filename, workspace, baseDir, userNumber);
+  const forkLevel = clonedFrom ? getConversationForkLevel(filename, workspace, baseDir, userNumber) : 0;
 
   return {
     filename: safeFilename,
@@ -689,28 +689,67 @@ export function renameConversationLog(
 }
 
 /**
+ * Reads only the Cloned From metadata from a conversation markdown file without parsing the whole log.
+ */
+function readClonedFromMetadata(
+  filename: string,
+  workspace: string = "default",
+  baseDir: string = "logs",
+  userNumber: string = "00000"
+): { parentFilename: string; parentWorkspace: string } | null {
+  try {
+    const safeFilename = path.basename(filename);
+    const fullPath = path.join(getWorkspaceDir(workspace, baseDir, userNumber), safeFilename);
+    if (!fs.existsSync(fullPath)) return null;
+
+    // Read only the first 2KB of the file (metadata is always located in the header)
+    const fd = fs.openSync(fullPath, "r");
+    const buffer = Buffer.alloc(2048);
+    const bytesRead = fs.readSync(fd, buffer, 0, 2048, 0);
+    fs.closeSync(fd);
+
+    const headerText = buffer.toString("utf-8", 0, bytesRead);
+    const cloneMatch = headerText.match(/- \*\*Cloned From\*\*: `([^`]+)`(?:\s*\((.*?)\))?/);
+    if (!cloneMatch) return null;
+
+    const parentFilename = cloneMatch[1].trim();
+    const extraInfo = cloneMatch[2] || "";
+    const wsMatch = extraInfo.match(/Workspace:\s*([^,)]+)/);
+    const parentWorkspace = wsMatch ? wsMatch[1].trim() : workspace;
+
+    return { parentFilename, parentWorkspace };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Computes the fork/nesting depth of a conversation session log (0 for root, 1 for 1st fork, etc.)
+ * Iterative, non-recursive, and completely immune to infinite mutual loops or stack overflow.
  */
 export function getConversationForkLevel(
   filename: string,
   workspace: string = "default",
   baseDir: string = "logs",
-  userNumber: string = "00000",
-  visited: Set<string> = new Set()
+  userNumber: string = "00000"
 ): number {
-  if (!filename || visited.has(filename)) return 0;
-  visited.add(filename);
+  let depth = 0;
+  let currentFile = filename;
+  let currentWs = workspace;
+  const visited = new Set<string>();
 
-  try {
-    const parsed = parseConversationLog(filename, workspace, baseDir, userNumber);
-    if (!parsed.clonedFrom?.parentFilename) {
-      return 0;
+  while (currentFile && !visited.has(currentFile) && depth < 20) {
+    visited.add(currentFile);
+    const meta = readClonedFromMetadata(currentFile, currentWs, baseDir, userNumber);
+    if (!meta || !meta.parentFilename) {
+      break;
     }
-    const parentWs = parsed.clonedFrom.parentWorkspace || workspace || "default";
-    return 1 + getConversationForkLevel(parsed.clonedFrom.parentFilename, parentWs, baseDir, userNumber, visited);
-  } catch {
-    return 0;
+    depth += 1;
+    currentFile = meta.parentFilename;
+    currentWs = meta.parentWorkspace || currentWs;
   }
+
+  return depth;
 }
 
 /**
@@ -756,8 +795,9 @@ export function cloneConversationTurn(
   }
 
   const firstUserMsg = targetMessages.find((m) => m.role === "user");
-  const baseTitle = firstUserMsg ? firstUserMsg.content.slice(0, 40) : "Cloned Conversation";
-  const newTitle = `[Fork L#${nextForkLevel} T#${turnIndex}] ${baseTitle}`;
+  const rawTitle = firstUserMsg ? firstUserMsg.content : "Cloned Conversation";
+  const cleanTitle = rawTitle.replace(/[`\r\n]+/g, " ").trim().slice(0, 40) || "Conversation";
+  const newTitle = `[Fork L#${nextForkLevel} T#${turnIndex}] ${cleanTitle}`;
 
   const finalDocHashes = Array.isArray(customDocHashes) ? customDocHashes : (parsed.attachedDocHashes || []);
 

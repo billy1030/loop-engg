@@ -1,6 +1,6 @@
 # Cross-Platform Session Deletion & Performance Optimization Architecture
 
-本文件深入分析 **MiniBot** 在跨平台（macOS WebKit/Safari 與 Windows Chromium/Edge）環境下，執行對話歷史紀錄刪除（Session Deletion）時所遭遇的「系統凍結 / 嚴重卡頓（Perceived System Hang）」問題之根本原因，並記錄相應的前後端非同步優化架構與即時等待狀態反饋機制。
+本文件深入分析 **MiniBot** 在跨平台（macOS Google Chrome / Safari 與 Windows Chromium/Edge）環境下，執行對話歷史紀錄刪除（Session Deletion）時所遭遇的「系統凍結 / 嚴重卡頓（Perceived System Hang）」問題之根本原因，並記錄相應的前後端非同步優化架構與即時等待狀態反饋機制。
 
 ---
 
@@ -67,98 +67,6 @@ showAlert("Deleted Successfully");                           // 彈出第二個�
 3. 處理完成後，又突然彈出第二個「刪除成功」全螢幕毛玻璃對話框（`backdrop-filter` 遮罩覆蓋全螢幕），再次封鎖所有畫面點擊，必須按「OK」才能恢復。
 4. 使用者在感知上會強烈認為「系統先卡死了一下，然後被彈出的視窗鎖住了」。
 
----
-
-## 3. 架構優化與解決方案 (Architecture Implementation)
-
-為了徹底消除此卡頓感並在跨平台上提供如原生應用般的流暢體驗，我們實施了五大優化：
-
-### 3.1 即時等待圖標與防重複點擊 (Real-time Spinner & Card Disabling)
-在側邊欄對話卡片與工作區刪除按鈕中加入即時的非同步處理狀態 `deletingSessionFile` 與 `isDeletingWs`：
-
-```tsx
-// frontend/src/App.tsx
-const [deletingSessionFile, setDeletingSessionFile] = useState<string | null>(null);
-
-// 側邊欄卡片渲染邏輯
-const isDeletingThis = deletingSessionFile === session.filename;
-
-<button
-  onClick={(e) => deleteSession(e, session.filename)}
-  disabled={isDeletingThis}
-  title={isDeletingThis ? "Deleting session..." : "Delete this session"}
-  style={{
-    cursor: isDeletingThis ? "not-allowed" : "pointer",
-    color: isDeletingThis ? "#ef4444" : "var(--text-muted)",
-  }}
->
-  {isDeletingThis ? (
-    <Loader2 size={11.5} className="spin" color="#ef4444" />
-  ) : (
-    <Trash2 size={11.5} />
-  )}
-</button>
-```
-- 使用者點擊確認後，目標卡片的垃圾桶圖標立刻轉化為**紅色旋轉等待圖標 (`Loader2 className="spin"`)**。
-- 卡片透明度降為 `0.45` 且設置 `pointer-events: none` 與 `draggable: false`，徹底杜絕重複點擊或誤觸拖曳。
-
-### 3.2 廢除阻斷性次級彈窗 (Silent In-Place Completion)
-廢除刪除成功後的第二個阻塞式全螢幕對話框，卡片在旋轉等待完成後直接平滑淡出消失：
-```ts
-// 成功時靜默刷新，不打斷操作節奏；僅在失敗時主動警告
-if (res.ok) {
-  await Promise.all([
-    fetchLogs(currentWorkspace),
-    fetchWorkspaces(),
-  ]);
-} else {
-  const data = await res.json();
-  await fetchLogs(currentWorkspace);
-  showAlert(`Delete failed: ${data.error || "Unknown error"}`, "error", "Delete Failed");
-}
-```
-
-### 3.3 後端並行同步化 (Parallel Background Fetching)
-將原本循序發出的網路請求改為 `Promise.all` 同時並行處理，直接降低 50% 以上的網路來回耗時：
-```ts
-await Promise.all([
-  fetchLogs(currentWorkspace),
-  fetchWorkspaces(),
-]);
-```
-
-### 3.4 鍵盤 Esc 全域快速取消支援
-在 `AlertModal.tsx` 中注入 `useEffect` 監聽鍵盤事件：
-```tsx
-React.useEffect(() => {
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      if (isConfirm && onCancel) onCancel();
-      else onClose();
-    }
-  };
-  window.addEventListener("keydown", handleKeyDown);
-  return () => window.removeEventListener("keydown", handleKeyDown);
-}, [isConfirm, onCancel, onClose]);
-```
-使用者可隨時按下鍵盤 <kbd>Esc</kbd> 退出任何確認視窗或提示彈窗，符合桌面級軟體的直覺體驗。
-
-### 3.5 後端檔案系統快取與排序表同步清理
-在 `src/logger/conversation-logger.ts` 中實作記憶體標記快取，避免重複對 APFS 進行遞迴掃描：
-```ts
-const migratedUsers = new Set<string>();
-
-export function ensureWorkspaceMigration(baseDir: string = "logs", userNumber: string = "00000") {
-  const cacheKey = `${baseDir}:${userNumber}`;
-  if (migratedUsers.has(cacheKey)) {
-    return; // 已遷移過之使用者不再重複進行檔案系統掃描
-  }
-  migratedUsers.add(cacheKey);
-  // ...
-}
-```
-同時在檔案刪除完成後，自動將該檔案名稱從 `session-order.json` 中移除，維護對話排序表的一致性。
-
 ### 2.5 Google Chrome on macOS IPv6 Happy Eyeballs 回退延遲
 在 macOS 的 `/etc/hosts` 定義中，`localhost` 同時對應至 `::1` (IPv6) 與 `127.0.0.1` (IPv4)。
 - 原先 Node.js 伺服器在 `src/server.ts` 中硬編碼為 `app.listen(PORT, "0.0.0.0")`，此綁定**僅監聽 IPv4 介面**。
@@ -169,7 +77,7 @@ export function ensureWorkspaceMigration(baseDir: string = "logs", userNumber: s
 
 ## 3. 架構優化與解決方案 (Architecture Implementation)
 
-為了徹底消除此卡頓感並在跨平台上提供如原生應用般的流暢體驗，我們實施了七大優化：
+為了徹底消除此卡頓感並在跨平台上提供如原生應用般的流暢體驗，我們實施了七大優化 (Seven Pillars of Optimization)：
 
 ### 3.1 即時等待圖標與防重複點擊 (Real-time Spinner & Card Disabling)
 在側邊欄對話卡片與工作區刪除按鈕中加入即時的非同步處理狀態 `deletingSessionFile` 與 `isDeletingWs`：

@@ -237,7 +237,7 @@ export function App() {
 
   const fetchWorkspaces = async () => {
     try {
-      const res = await fetch("/api/workspaces");
+      const res = await fetch("/api/workspaces", { signal: AbortSignal.timeout(6000) });
       const data = await res.json();
       if (data.workspaces) {
         setWorkspaces(data.workspaces);
@@ -405,7 +405,7 @@ export function App() {
   const fetchLogs = async (wsName?: string) => {
     const ws = wsName || currentWorkspace;
     try {
-      const res = await fetch(`/api/logs?workspace=${encodeURIComponent(ws)}`);
+      const res = await fetch(`/api/logs?workspace=${encodeURIComponent(ws)}`, { signal: AbortSignal.timeout(6000) });
       const data = await res.json();
       if (data.logs) {
         setSavedSessions(data.logs);
@@ -466,10 +466,16 @@ export function App() {
         try {
           const res = await fetch(
             `/api/logs/${encodeURIComponent(filename)}?workspace=${encodeURIComponent(currentWorkspace)}`,
-            { method: "DELETE" }
+            { 
+              method: "DELETE",
+              signal: AbortSignal.timeout(6000), // 🛡️ Prevent any hanging socket connections
+            }
           );
 
           if (res.ok) {
+            // Optimistically remove session from sidebar with 0 latency
+            setSavedSessions((prev) => prev.filter((s) => s.filename !== filename));
+
             // Re-sync logs and workspaces in parallel in the background
             await Promise.all([
               fetchLogs(currentWorkspace),

@@ -1012,13 +1012,21 @@ app.use((req, res) => {
 
 async function start() {
   await initMCP();
-  const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`\n🚀 Server listening on http://localhost:${PORT}`);
+  // Bind to "::" to support both IPv6 (::1) and IPv4 (127.0.0.1 / 0.0.0.0) dual-stack on macOS and Linux
+  const server = app.listen(PORT, "::", () => {
+    console.log(`\n🚀 Server listening on http://localhost:${PORT} (dual-stack IPv4/IPv6)`);
     console.log(`⚡ Testing Port: ${PORT}`);
     console.log(`🔌 MCP Tools active: ${mcpManager.getOpenAITools().length}\n`);
   });
 
   server.on("error", (err: any) => {
+    if (err.code === "EAFNOSUPPORT") {
+      // Fallback to IPv4 if IPv6 dual-stack is not supported
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`\n🚀 Server listening on http://localhost:${PORT} (IPv4 fallback)`);
+      });
+      return;
+    }
     console.error(`[Server Error] Could not start server on port ${PORT}:`, err.message);
   });
 }

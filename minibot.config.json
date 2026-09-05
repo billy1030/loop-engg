@@ -1,8 +1,8 @@
 {
   "llm": {
-    "baseUrl": "https://api.minimaxi.com/v1",
-    "apiKey": "${LLM_API_KEY}",
-    "model": "MiniMax-M3",
+    "baseUrl": "http://127.0.0.1:8045/v1",
+    "apiKey": "sk-22aa6ad3edcc4e8aba9b3f03bdda8e1c",
+    "model": "gemini-3.8-flash-low",
     "temperature": 0.7,
     "maxTokens": 4096
   },
@@ -12,19 +12,28 @@
   },
   "mcpServers": {
     "web-search": {
+      "type": "stdio",
       "command": "node",
-      "args": ["dist/mcp/servers/web-search-server.js"],
+      "args": [
+        "dist/mcp/servers/web-search-server.js"
+      ],
+      "strictSSL": false,
       "enabled": true,
       "description": "Provides internet web search and page content fetching capabilities"
     },
     "minimax-multimodal": {
+      "type": "stdio",
       "command": "node",
-      "args": ["dist/mcp/servers/minimax-server.js"],
+      "args": [
+        "dist/mcp/servers/minimax-server.js"
+      ],
+      "strictSSL": false,
       "enabled": true,
       "description": "Provides MiniMax official web search, image generation, speech synthesis, and music creation via mmx-cli"
     },
     "bigfix": {
       "type": "streamable-http",
+      "args": [],
       "url": "https://172.22.29.51:9494/mcp",
       "headers": {
         "Authorization": "Bearer 9qdVuQuIkXazX7eRa9s98LRB10VlXsze5uuYTQAAAAI",

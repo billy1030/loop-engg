@@ -52,15 +52,21 @@ export class BigFixStreamableHttpClient {
     }
 
     return new Promise((resolve, reject) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        controller.abort(new Error("BigFix MCP connection timed out after 3000ms"));
+      }, 3000);
+
       const req = https.request(
         this.url,
         {
           method: "POST",
           agent,
           headers,
-          timeout: 5000,
+          signal: controller.signal,
         },
         (res) => {
+          clearTimeout(timer);
           // If server provides or updates Mcp-Session-Id
           const newSessionId = res.headers["mcp-session-id"] as string;
           if (newSessionId) {
@@ -104,10 +110,10 @@ export class BigFixStreamableHttpClient {
         }
       );
 
-      req.on("timeout", () => {
-        req.destroy(new Error("BigFix MCP request timed out after 5000ms"));
+      req.on("error", (err) => {
+        clearTimeout(timer);
+        reject(err);
       });
-      req.on("error", reject);
       req.write(postData);
       req.end();
     });

@@ -35,6 +35,8 @@ import {
   KeyRound,
   Type,
   GripVertical,
+  GitBranch,
+  Palette,
 } from "lucide-react";
 import { MarkdownRenderer } from "./components/MarkdownRenderer";
 import { generateStandaloneExportHtml, downloadHtmlFile } from "./utils/htmlExport";
@@ -166,6 +168,53 @@ export function App() {
   const [subConvModalFile, setSubConvModalFile] = useState<string | null>(null);
   const [draggedSessionKey, setDraggedSessionKey] = useState<string | null>(null);
   const [dragOverSessionKey, setDragOverSessionKey] = useState<string | null>(null);
+  const [showMermaidMenu, setShowMermaidMenu] = useState<boolean>(false);
+  const mermaidMenuRef = useRef<HTMLDivElement>(null);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
+  // 🎨 是否顯示 Mermaid 圖表頂部操作列按鈕群組 (預設 false 隱藏，遵循 SLS hide-mermaid-tools 設計)
+  const [showMermaidTools, setShowMermaidTools] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("minibot_show_mermaid_tools");
+      return saved === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.body.classList.toggle("hide-mermaid-tools", !showMermaidTools);
+    }
+  }, [showMermaidTools]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mermaidMenuRef.current && !mermaidMenuRef.current.contains(e.target as Node)) {
+        setShowMermaidMenu(false);
+      }
+    };
+    if (showMermaidMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [showMermaidMenu]);
+
+  const handleInsertMermaid = (snippet: string, isSnippetOnly?: boolean) => {
+    if (isSnippetOnly) {
+      setInputPrompt((prev) => (prev ? `${prev}\n\n${snippet}` : snippet));
+    } else {
+      if (inputPrompt.trim()) {
+        setInputPrompt((prev) => `${prev}\n\n${snippet}`);
+      } else {
+        setInputPrompt(snippet);
+      }
+    }
+    setShowMermaidMenu(false);
+    setTimeout(() => {
+      chatInputRef.current?.focus();
+    }, 50);
+  };
 
   const handleReorderSessions = async (newOrderedSessions: any[]) => {
     setSavedSessions(newOrderedSessions);
@@ -1944,6 +1993,45 @@ export function App() {
               </button>
             )}
 
+            {/* 🎨 Toggle Mermaid Diagram Buttons (SLS Parity: icon-only button, default hidden) */}
+            <button
+              onClick={() => {
+                const nextVal = !showMermaidTools;
+                setShowMermaidTools(nextVal);
+                try {
+                  localStorage.setItem("minibot_show_mermaid_tools", nextVal ? "1" : "0");
+                } catch {}
+              }}
+              title={showMermaidTools ? "Hide Mermaid diagram toolbar buttons" : "Show Mermaid diagram toolbar buttons"}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: showMermaidTools ? "rgba(2, 132, 199, 0.15)" : "var(--bg-card)",
+                border: showMermaidTools ? "1px solid var(--accent, #0284c7)" : "1px solid var(--border-color)",
+                color: showMermaidTools ? "var(--accent, #0284c7)" : "var(--text-muted)",
+                cursor: "pointer",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => {
+                if (!showMermaidTools) {
+                  e.currentTarget.style.borderColor = "var(--accent)";
+                  e.currentTarget.style.color = "var(--accent)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!showMermaidTools) {
+                  e.currentTarget.style.borderColor = "var(--border-color)";
+                  e.currentTarget.style.color = "var(--text-muted)";
+                }
+              }}
+            >
+              <Palette size={15} />
+            </button>
+
             {/* Export Entire Conversation as HTML */}
             <button
               onClick={() => {
@@ -2333,10 +2421,10 @@ export function App() {
                       lineHeight: 1.5,
                     }}
                   >
-                    {m.content}
+                    <MarkdownRenderer content={m.content} />
                   </div>
                 ) : (
-                  <div style={{ maxWidth: "85%", width: "100%" }}>                  {/* Tool Invocations Section governed by mcpViewMode */}
+                  <div style={{ maxWidth: "96%", width: "100%" }}>                  {/* Tool Invocations Section governed by mcpViewMode */}
                   {m.toolCalls && m.toolCalls.length > 0 && mcpViewMode !== "hide" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
                       {/* If Minimize mode: show a compact summary bar */}
@@ -2660,7 +2748,240 @@ export function App() {
             )}
           </button>
 
+          {/* 📊 Mermaid 架構流程圖快捷按鈕 */}
+          <div style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setShowMermaidMenu((v) => !v)}
+              title="插入或要求生成 Mermaid 架構流程圖"
+              style={{
+                padding: "11px 14px",
+                borderRadius: 8,
+                background: showMermaidMenu ? "rgba(16, 185, 129, 0.15)" : "var(--bg-card)",
+                border: showMermaidMenu ? "1px solid #10b981" : "1px solid var(--border-color)",
+                color: showMermaidMenu ? "#10b981" : "var(--text-muted)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 7,
+                fontSize: 13,
+                fontWeight: 600,
+                transition: "all 0.15s ease",
+              }}
+            >
+              <GitBranch size={16} color="#10b981" />
+              <span>Mermaid</span>
+            </button>
+
+            {showMermaidMenu && (
+              <div
+                ref={mermaidMenuRef}
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 8px)",
+                  left: 0,
+                  zIndex: 1100,
+                  background: "var(--bg-secondary)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: 12,
+                  padding: 8,
+                  boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
+                  minWidth: 265,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                <div
+                  style={{
+                    padding: "4px 8px 6px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "var(--text-muted)",
+                    borderBottom: "1px solid var(--border-color)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>📊 Mermaid 架構圖生成器</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      background: "rgba(16, 185, 129, 0.15)",
+                      color: "#10b981",
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      fontWeight: 700,
+                    }}
+                  >
+                    一鍵套用
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleInsertMermaid(
+                      "請以 Mermaid 流程圖語法（flowchart TD）繪製系統架構，包含詳細節點分支、步驟說明與處理邏輯。"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ fontSize: 16 }}>🔀</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>架構流程圖 (Flowchart)</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>詳細節點分支與業務決策判斷</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleInsertMermaid(
+                      "請以 Mermaid 循序圖語法（sequenceDiagram）繪製各服務與模組之間的時序調用與握手流程。"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ fontSize: 16 }}>⏱️</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>循序時序圖 (Sequence)</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>微服務請求握手與調用鏈</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleInsertMermaid(
+                      "請以 Mermaid 拓撲圖語法繪製系統叢集架構，包含 subgraph 子群組邊界與數據流向。"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ fontSize: 16 }}>🏛️</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>叢集拓撲圖 (Topology)</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>包含子群組 subgraph 隔離區塊</div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleInsertMermaid(
+                      "請以 Mermaid 心智圖語法（mindmap）拆解核心概念、模組職責與技術要點。"
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ fontSize: 16 }}>🧠</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>概念心智圖 (Mindmap)</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>輻射狀技術體系梳理</div>
+                  </div>
+                </button>
+
+                <div style={{ borderTop: "1px solid var(--border-color)", margin: "3px 0" }} />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleInsertMermaid(
+                      '```mermaid\nflowchart TD\n  Client["客戶端 Client"] --> GW["API Gateway"]\n  GW --> S1["微服務 Service A"]\n  GW --> S2["微服務 Service B"]\n  S1 --> DB[("資料庫 Database")]\n```\n',
+                      true
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 10px",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    color: "var(--text-main)",
+                    fontSize: 12.5,
+                    textAlign: "left",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-card)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{ fontSize: 16 }}>📋</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>插入代碼範本 (Snippet)</div>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>直接插入完整 Mermaid 原始碼區塊</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <input
+            ref={chatInputRef}
             type="text"
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}

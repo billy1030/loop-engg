@@ -53,23 +53,33 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
-// 1. Serve static files from embedded memory if available (standalone single binary)
+// 1. Serve static frontend files from disk if folder exists (development mode)
+const clientDistPath = path.resolve(process.cwd(), "frontend/dist");
+if (fs.existsSync(clientDistPath)) {
+  app.use(
+    express.static(clientDistPath, {
+      etag: false,
+      lastModified: false,
+      setHeaders: (res) => {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+      },
+    })
+  );
+}
+
+// 2. Serve static files from embedded memory if available (standalone single binary fallback)
 app.use((req, res, next) => {
   if (req.method !== "GET" && req.method !== "HEAD") return next();
   const urlPath = req.path;
   const asset = EMBEDDED_FRONTEND[urlPath];
-  if (asset) {
+  if (asset && asset.content) {
     res.setHeader("Content-Type", asset.contentType);
     return res.send(asset.content);
   }
   next();
 });
-
-// 2. Serve static frontend files from disk if folder exists (development mode)
-const clientDistPath = path.resolve(process.cwd(), "frontend/dist");
-if (fs.existsSync(clientDistPath)) {
-  app.use(express.static(clientDistPath));
-}
 
 let config: LoopConfig = loadConfig();
 let mcpManager = new MCPClientManager();
@@ -981,6 +991,9 @@ app.delete("/api/logs/:filename", (req, res) => {
 app.use((req, res) => {
   const indexPath = path.resolve(process.cwd(), "frontend/dist/index.html");
   if (fs.existsSync(indexPath)) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     return res.sendFile(indexPath);
   }
   const embeddedIndex = EMBEDDED_FRONTEND["/index.html"] || EMBEDDED_FRONTEND["/"];
